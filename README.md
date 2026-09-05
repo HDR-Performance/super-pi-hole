@@ -1,11 +1,13 @@
 # Super Pi Hole
 
-An independent, self-hosted companion interface for **Pi-hole v6**, with a
-family-policy design workspace. Open source so others can inspect, improve,
-and build their own containers or TrueNAS installations.
+An independent, self-hosted distribution of **Pi-hole v6** with a custom
+controller, device center, and family-policy design workspace. The complete
+pinned upstream sources are public under `vendor/`, with original licenses.
 
-**0.2.0-test is an early test release, not a production security appliance.**
-It connects to an existing Pi-hole; it does not replace its DNS engine.
+**0.3.0-test is an integrated test release, not a production security appliance.**
+It includes a source-built DNS engine. Upgrade instructions and rollback are in
+[Integrated TrueNAS upgrade](docs/INTEGRATED-UPGRADE.md). Only use published
+release artifacts whose integrated-container tests passed.
 Pi-hole, TrueNAS, TP-Link, NETGEAR, and Ubiquiti do not sponsor or endorse it.
 
 ## What works
@@ -18,9 +20,12 @@ Pi-hole, TrueNAS, TP-Link, NETGEAR, and Ubiquiti do not sponsor or endorse it.
 | Enable blocking and timed pauses | Live; server unlock and per-action confirmation required |
 | Exact and regex allow/deny rules with explicit Pi-hole groups | Live add/remove; not a per-device rule unless Pi-hole group assignments make it so |
 | Local A/AAAA host records | Live add/remove of one record at a time |
-| Lists, groups, configured client assignments | Live views; existing records remain managed in original Pi-hole |
+| Observed device inventory, manual IP/MAC selection, history and groups | Live five-second inventory; real group assignment with stale-edit protection |
+| Lists, groups, configured client assignments | Live management in Super Pi Hole; no default policies overwrite existing settings |
 | Windows/Microsoft and LG webOS privacy packs | Opt-in HaGeZi subscriptions with explicit Pi-hole groups and confirmation; run Update Gravity in original Pi-hole afterwards |
-| DHCP, CNAMEs, DNSSEC, gravity updates, Teleporter, diagnostics | Retained via original administration interface; not reimplemented |
+| DNS, DHCP, DNSSEC, NTP, resolver and database settings | Advanced JSON editor submits changed fields only; listener/auth/filesystem settings are deployment-managed |
+| Gravity refresh | Live job with bounded output; no application-code update |
+| Original Pi-hole interface | Read-only through authenticated Super Pi Hole in integrated mode |
 | Administrator login and persistent app configuration | Standalone Node runtime; local SQLite and session cookies |
 | Country selection, parental controls, schedules, category presets | **Saved policy simulations only; no live enforcement** |
 | Blocklist catalog and pasted-list validator | Proposed presets and validation; no automatic feed ingestion |
@@ -31,16 +36,28 @@ using a shared device, application processes, full HTTPS URLs, messages, or
 traffic that bypasses its resolver. Unknown destinations and foreign IPs are
 not proof of spying.
 
-## Install alongside an existing Pi-hole
+## Upgrade an existing Pi-hole
+
+The default `Dockerfile` and [TrueNAS upgrade YAML](deploy/truenas-upgrade.yaml)
+build/run the integrated distribution. Three services (backup, DNS, GUI) use the
+same reviewed GHCR image; no upstream Pi-hole image is pulled at runtime. Existing
+configuration and dnsmasq directories are retained after a verified backup.
+
+Use a versioned release and its image digest. Never run two engines on the same
+port or data. The currently supported upgrade baseline is Pi-hole core 6.4.1,
+FTL 6.6, web 6.5 (`pihole/pihole:2026.04.0`), Linux amd64. See
+[the integrated installation guide](docs/INTEGRATED-UPGRADE.md).
+
+## Legacy companion development
 
 See [the installation guide](DEPLOYMENT.md) for three paths:
 
-1. **Docker Compose from source:** builds a self-contained container.
+1. **Docker Compose from source:** use `deploy/Dockerfile.companion` for GUI-only development.
 2. **TrueNAS SCALE YAML:** runs an uploaded, prebuilt runtime bundle using an
    official Node image. No unpublished custom image is required.
 3. **Native Node.js 24:** runs the same standalone runtime without Docker.
 
-All paths leave the existing Pi-hole's DNS port, container, configuration, and
+These legacy companion paths leave the existing Pi-hole's DNS port, container, configuration, and
 volumes alone. Live changes are locked by default. No country blocks or new
 blocklist subscriptions are applied during installation.
 

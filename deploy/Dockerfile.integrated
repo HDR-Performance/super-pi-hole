@@ -31,6 +31,7 @@ COPY vendor/pi-hole/core /etc/.pihole
 COPY vendor/pi-hole/web /var/www/html/admin
 COPY vendor/pi-hole/docker/src/bash_functions.sh /usr/bin/bash_functions.sh
 COPY vendor/pi-hole/docker/src/crontab.txt /crontab.txt
+COPY config/engine-tag /pihole.docker.tag
 COPY --from=ftl-build /build/pihole-FTL /usr/bin/pihole-FTL
 RUN mkdir -p /opt/pihole /etc/pihole /etc/dnsmasq.d /var/log/pihole /var/lib/logrotate /data \
     && cp /etc/.pihole/gravity.sh /etc/.pihole/advanced/Scripts/*.sh /etc/.pihole/advanced/Scripts/COL_TABLE /opt/pihole/ \

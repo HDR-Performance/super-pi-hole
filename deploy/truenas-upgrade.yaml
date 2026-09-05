@@ -12,6 +12,8 @@ services:
     cap_drop: [ALL]
     cap_add: [CHOWN, FOWNER, DAC_READ_SEARCH, NET_BIND_SERVICE]
     command: [node, /app/deploy/backup-upgrade.mjs]
+    environment:
+      SUPER_PIHOLE_PASSWORD: &admin-password 'CHANGE_ME_TO_A_UNIQUE_16_CHARACTER_PASSWORD'
     volumes:
       - type: bind
         source: /mnt/.ix-apps/app_mounts/pihole/config
@@ -80,7 +82,7 @@ services:
       HOST: 0.0.0.0
       PORT: '20721'
       PUBLIC_ORIGIN: 'http://192.168.0.8:20721'
-      SUPER_PIHOLE_PASSWORD: 'CHANGE_ME_TO_A_UNIQUE_16_CHARACTER_PASSWORD'
+      SUPER_PIHOLE_PASSWORD: *admin-password
       SUPER_PIHOLE_INTEGRATED: 'true'
       PIHOLE_URL: 'http://127.0.0.1:20720'
       # Existing Pi-hole API password, blank in your supplied working config.

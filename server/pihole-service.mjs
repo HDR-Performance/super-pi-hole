@@ -86,6 +86,19 @@ export function createPiholeClient({
     loginPromise,
     lastLoginFailure = 0,
     mutating = false;
+  let gravity = { state: 'idle', output: '', startedAt: null, finishedAt: null };
+  async function runGravity() {
+    try {
+      const response = await fetchImpl(new URL('action/gravity', base), { method: 'POST', redirect: 'error', headers: { ...(sid ? { 'X-FTL-SID': sid } : {}) }, signal: AbortSignal.timeout(300000) });
+      if (!response.ok) throw Error(`Engine rejected gravity (HTTP ${response.status}).`);
+      const decoder = new TextDecoder();
+      for await (const chunk of response.body ?? []) gravity.output = (gravity.output + decoder.decode(chunk, { stream: true })).slice(-65536);
+      gravity.output = gravity.output.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
+      // Upstream emits an exit-code trailer, not a JSON success response.
+      gravity.state = /"status"\s*:\s*"success"|\[✓\] Done|\[✓\] Pi-hole blocking is enabled/.test(gravity.output) ? 'completed' : 'finished-review-log';
+      gravity.finishedAt = new Date().toISOString();
+    } catch (error) { gravity.state = 'unknown'; gravity.output += '\nThe connection ended without a confirmed result. Inspect DNS/list status before retrying.'; gravity.finishedAt = new Date().toISOString(); }
+  }
   async function wire(path, method = 'GET', body, session = sid) {
     let response;
     try {
@@ -235,6 +248,7 @@ export function createPiholeClient({
       return request(path);
     },
     async read(resource, params = new URLSearchParams()) {
+      if (resource === 'gravity') return { ...gravity };
       if (resource === 'devices') {
         const [network, clients, groups] = await Promise.all([request('network/devices?max_devices=10000&max_addresses=32'), request('clients'), request('groups')]);
         if (!Array.isArray(network.devices) || !Array.isArray(clients.clients) || !Array.isArray(groups.groups)) throw fail(502, 'Device inventory is unavailable.');
@@ -364,6 +378,14 @@ export function createPiholeClient({
           409,
           'Another Pi-hole change is running. Refresh before retrying.',
         );
+      if (body.action === 'gravity-update') {
+        if (!base) throw fail(503, 'DNS engine is not connected.');
+        if (gravity.state === 'running') throw fail(409, 'Gravity is already running.');
+        gravity = { state: 'running', output: '', startedAt: new Date().toISOString(), finishedAt: null };
+        try { if (password && !sid) await login(); } catch (error) { gravity.state = 'unknown'; throw error; }
+        void runGravity();
+        return { ok: true, message: 'Gravity started. Follow its output below; application code is not updated.' };
+      }
       if (['client-assign', 'group-save', 'group-delete', 'list-save', 'list-delete', 'config-set'].includes(body.action)) {
         mutating = true;
         try {

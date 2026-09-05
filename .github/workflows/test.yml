@@ -17,7 +17,7 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run build:server
       - run: npm run package:server
-      - run: docker build -t super-pi-hole:ci .
+      - run: docker build -f deploy/Dockerfile.companion -t super-pi-hole:ci .
       - name: Container smoke test (no Pi-hole connection)
         shell: bash
         run: |

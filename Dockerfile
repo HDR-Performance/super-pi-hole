@@ -2,39 +2,58 @@ FROM node:24-bookworm-slim AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci
-COPY app ./app
-COPY components ./components
-COPY config ./config
-COPY hooks ./hooks
-COPY lib ./lib
-COPY server ./server
-COPY standalone ./standalone
-COPY tests ./tests
-COPY deploy ./deploy
-COPY tools ./tools
-COPY vendor-notices ./vendor-notices
-COPY vite.standalone.config.ts tsconfig.json LICENSE THIRD-PARTY-NOTICES.md ./
-RUN npm test && npm run build:server && node deploy/licenses.mjs third-party-licenses
+COPY . .
+RUN node tools/verify-upstream.mjs && npm test && npm run build:server && node deploy/licenses.mjs third-party-licenses
 
-FROM node:24-bookworm-slim AS runtime
+FROM alpine:3.23.3@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659 AS ftl-build
+RUN apk add --no-cache build-base cmake bash git linux-headers pkgconf gmp-dev nettle-dev libidn2-dev libunistring-dev readline-dev xxd python3 py3-jinja2 py3-jsonschema
+COPY vendor/sources/mbedtls-4.0.0.tar.bz2 /src/mbedtls-4.0.0.tar.bz2
+RUN echo '2f3a47f7b3a541ddef450e4867eeecb7ce2ef7776093f3a11d6d43ead6bf2827  /src/mbedtls-4.0.0.tar.bz2' | sha256sum -c - \
+    && tar -xjf /src/mbedtls-4.0.0.tar.bz2 -C /src \
+    && sed -i '/#define MBEDTLS_THREADING_C/s*^//**g; /#define MBEDTLS_THREADING_PTHREAD/s*^//**g' /src/mbedtls-4.0.0/include/mbedtls/mbedtls_config.h \
+    && cmake -S /src/mbedtls-4.0.0 -B /crypto-build -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF -DCMAKE_C_FLAGS=-fomit-frame-pointer \
+    && cmake --build /crypto-build -j2 && cmake --install /crypto-build
+WORKDIR /src/ftl
+COPY vendor/pi-hole/ftl ./
+ENV GIT_BRANCH=super-pi-hole-pinned GIT_HASH=71b6fc62 GIT_VERSION=v6.6 GIT_TAG=v6.6 GIT_DATE=2026-04-03 CI_ARCH=linux/amd64
+RUN cmake -S . -B /build -DCMAKE_BUILD_TYPE=Release && cmake --build /build -j2 && /build/pihole-FTL verify
+
+FROM alpine:3.23.3@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659 AS runtime
+RUN apk add --no-cache nodejs bash bash-completion bind-tools binutils coreutils curl git grep iproute2 jq libcap logrotate ncurses procps-ng psmisc shadow sudo tzdata unzip wget gmp nettle libidn2 libunistring mbedtls readline \
+    && addgroup -g 1000 pihole && adduser -S -D -H -u 1000 -G pihole pihole \
+    && addgroup -g 568 apps && adduser -S -D -H -u 568 -G apps apps
 LABEL org.opencontainers.image.title="Super Pi Hole" \
-      org.opencontainers.image.description="Experimental Pi-hole v6 companion; custom policies remain simulations" \
-      org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.version="0.2.1-test" \
+      org.opencontainers.image.description="Integrated, source-pinned Pi-hole DNS and Super Pi Hole controller" \
+      org.opencontainers.image.licenses="MIT AND EUPL-1.2 AND GPL-2.0-or-later" \
+      org.opencontainers.image.version="0.3.0-test" \
       org.opencontainers.image.source="https://github.com/HDR-Performance/super-pi-hole"
+COPY vendor/pi-hole/core /etc/.pihole
+COPY vendor/pi-hole/web /var/www/html/admin
+COPY vendor/pi-hole/docker/src/bash_functions.sh /usr/bin/bash_functions.sh
+COPY vendor/pi-hole/docker/src/crontab.txt /crontab.txt
+COPY config/engine-tag /pihole.docker.tag
+COPY --from=ftl-build /build/pihole-FTL /usr/bin/pihole-FTL
+RUN mkdir -p /opt/pihole /etc/pihole /etc/dnsmasq.d /var/log/pihole /var/lib/logrotate /data \
+    && cp /etc/.pihole/gravity.sh /etc/.pihole/advanced/Scripts/*.sh /etc/.pihole/advanced/Scripts/COL_TABLE /opt/pihole/ \
+    && cp /etc/.pihole/advanced/Templates/pihole-FTL-*.sh /opt/pihole/ \
+    && cp /etc/.pihole/pihole /opt/pihole/pihole-upstream \
+    && chmod +x /opt/pihole/*.sh /opt/pihole/pihole-upstream \
+    && sed -i '/updatechecker/d' /crontab.txt \
+    && chown 568:568 /data && chmod 700 /data
 WORKDIR /app
 COPY --from=build /src/standalone-dist ./standalone-dist
 COPY --from=build /src/server ./server
 COPY --from=build /src/lib ./lib
 COPY --from=build /src/config ./config
-COPY --from=build /src/deploy/healthcheck.mjs ./deploy/healthcheck.mjs
-COPY --from=build /src/deploy/init-data.mjs ./deploy/init-data.mjs
+COPY --from=build /src/deploy ./deploy
 COPY --from=build /src/third-party-licenses ./third-party-licenses
 COPY --from=build /src/vendor-notices ./vendor-notices
+COPY --from=build /src/vendor ./upstream-source
 COPY --from=build /src/LICENSE /src/THIRD-PARTY-NOTICES.md ./
-RUN mkdir /data && chown 568:568 /data && chmod 700 /data
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080 DATA_DIR=/data STATIC_DIR=/app/standalone-dist PIHOLE_WRITE_ENABLED=false
+COPY deploy/pihole-controlled.sh /usr/local/bin/pihole
+RUN chmod +x /usr/local/bin/pihole /app/deploy/start-dns.sh
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=20721 DATA_DIR=/data STATIC_DIR=/app/standalone-dist
 USER 568:568
-EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s CMD ["node", "/app/deploy/healthcheck.mjs"]
+EXPOSE 53/udp 53/tcp 20721/tcp
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD ["node", "/app/deploy/healthcheck.mjs"]
 CMD ["node", "server/runtime.mjs"]

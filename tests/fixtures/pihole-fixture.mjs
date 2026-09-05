@@ -15,6 +15,9 @@ export function fixtureFetch() {
     },
   ];
   const hosts = ['192.0.2.20 printer.home.arpa'];
+  const clients = [{ id: 1, client: '192.0.2.20', groups: [1], comment: 'Test printer' }];
+  const groups = [{ id: 0, name: 'Default', enabled: true, comment: 'Synthetic group' }, { id: 1, name: 'IoT', enabled: true, comment: 'Synthetic group' }];
+  const config = { dns: { upstreams: ['192.0.2.53'], hosts, port: 53, dnssec: false }, dhcp: { active: false }, ntp: { sync: { active: false } }, resolver: { resolveIPv4: true }, database: { maxDBdays: 91 } };
   const lists = [
     {
       id: 1,
@@ -67,6 +70,9 @@ export function fixtureFetch() {
       return response({
         session: { valid: true, sid: 'fixture-session', validity: 300 },
       });
+    if (u.pathname === '/api/network/devices') return response({ devices: [{ id: 1, hwaddr: '02:00:00:00:00:20', interface: 'fixture0', firstSeen: now - 86400, lastQuery: now, numQueries: 200, macVendor: 'Synthetic printer', ips: [{ ip: '192.0.2.20', name: 'Test printer', lastSeen: now }] }] });
+    if (u.pathname === '/api/config') { if (method === 'PATCH') for (const [key, value] of Object.entries(body.config)) Object.assign(config[key], value); return response({ config }); }
+    if (u.pathname === '/api/action/gravity') return new Response('[✓] Done\n');
     if (u.pathname === '/api/dns/blocking') {
       if (method === 'POST') {
         blocking = body.blocking ? 'enabled' : 'disabled';
@@ -213,19 +219,10 @@ export function fixtureFetch() {
       }
       return new Response(null, { status: method === 'PUT' ? 201 : 204 });
     }
-    if (u.pathname === '/api/groups')
-      return response({
-        groups: [
-          { id: 0, name: 'Default', enabled: true, comment: 'Synthetic group' },
-          { id: 1, name: 'IoT', enabled: true, comment: 'Synthetic group' },
-        ],
-      });
-    if (u.pathname === '/api/clients')
-      return response({
-        clients: [
-          { id: 1, client: '192.0.2.20', groups: [1], comment: 'Test printer' },
-        ],
-      });
+    if (u.pathname === '/api/groups') { if (method === 'POST') groups.push({ ...body, id: groups.length }); return response({ groups }); }
+    if (u.pathname.startsWith('/api/groups/')) { const entry = groups.find(g => g.name === decodeURIComponent(u.pathname.slice(12))); if (method === 'PUT') Object.assign(entry, body); if (method === 'DELETE') groups.splice(groups.indexOf(entry), 1); return response({ groups }); }
+    if (u.pathname === '/api/clients') { if (method === 'POST') clients.push({ ...body, id: clients.length + 1 }); return response({ clients }); }
+    if (u.pathname.startsWith('/api/clients/')) { const identifier = decodeURIComponent(u.pathname.slice(13)), client = clients.find(c => c.client === identifier); if (method === 'PUT') Object.assign(client, body); return response({ clients: clients.filter(c => c.client === identifier) }); }
     if (u.pathname === '/api/lists') {
       if (method === 'POST')
         lists.push({ ...body, id: lists.length + 1, type: 'block', number: 0 });

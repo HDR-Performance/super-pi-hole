@@ -2,7 +2,7 @@
 set -euo pipefail
 image=${1:-super-pi-hole:ci}
 docker volume create sph-ci-engine >/dev/null
-docker run --rm --user 0:0 -v sph-ci-engine:/etc/pihole "$image" bash -ec '
+docker run --rm -i --user 0:0 -v sph-ci-engine:/etc/pihole "$image" bash -es <<'SEED'
   pihole-FTL --config dns.upstreams "[\"1.1.1.1\"]" >/dev/null
   pihole-FTL --config dns.hosts "[\"192.0.2.42 allowed.test\"]" >/dev/null
   pihole-FTL --config dns.listeningMode ALL >/dev/null
@@ -11,8 +11,8 @@ docker run --rm --user 0:0 -v sph-ci-engine:/etc/pihole "$image" bash -ec '
   pihole-FTL --config ntp.ipv6.active false >/dev/null
   pihole-FTL --config ntp.sync.active false >/dev/null
   pihole-FTL sqlite3 /etc/pihole/gravity.db < /etc/.pihole/advanced/Templates/gravity.db.sql
-  pihole-FTL sqlite3 /etc/pihole/gravity.db "INSERT INTO domainlist(type,domain,comment) VALUES(1,\"blocked.test\",\"preserved fixture rule\");"
-'
+  pihole-FTL sqlite3 /etc/pihole/gravity.db "INSERT INTO domainlist(type,domain,comment) VALUES(1,'blocked.test','preserved fixture rule');"
+SEED
 docker run -d --name sph-ci-dns --user 0:0 --cap-add NET_ADMIN --cap-add SYS_NICE --cap-add SYS_TIME \
   -v sph-ci-engine:/etc/pihole -p 127.0.0.1:20721:20721 "$image" bash /app/deploy/start-dns.sh
 trap 'docker logs sph-ci-dns; docker logs sph-ci-ui 2>/dev/null || true' ERR
@@ -23,6 +23,7 @@ done
 test "$(docker exec sph-ci-dns dig +short @127.0.0.1 allowed.test)" = 192.0.2.42
 test "$(docker exec sph-ci-dns dig +short @127.0.0.1 blocked.test)" = 0.0.0.0
 docker run -d --name sph-ci-ui --network container:sph-ci-dns --read-only --cap-drop ALL \
+  --mount type=volume,src=sph-ci-ui-data,dst=/data \
   --tmpfs /tmp:size=64m -e PUBLIC_ORIGIN=http://127.0.0.1:20721 \
   -e SUPER_PIHOLE_PASSWORD=ci-only-long-test-password -e PIHOLE_URL=http://127.0.0.1:20720 \
   -e PIHOLE_WRITE_ENABLED=true -e SUPER_PIHOLE_INTEGRATED=true "$image"

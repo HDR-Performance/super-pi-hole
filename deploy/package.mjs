@@ -13,7 +13,7 @@ if (existsSync(target)) throw Error('This release path already exists. Existing 
 mkdirSync(target, { recursive: true });
 // Explicit allowlist: no home database, browser data, .env, personal docs, or source credentials.
 const paths = [
-  'standalone-dist', 'server/runtime.mjs', 'server/review-service.mjs', 'server/pihole-service.mjs', 'server/migrations',
+  'standalone-dist', 'server/runtime.mjs', 'server/review-service.mjs', 'server/pihole-service.mjs', 'server/stock-interface.mjs', 'server/migrations',
   'lib/network-policy.ts', 'lib/parental-policy.ts', 'lib/countries.ts',
   'config/blocklist-presets.json',
   'deploy/truenas.yaml', 'deploy/init-data.mjs', 'deploy/healthcheck.mjs', 'deploy/verify-bundle.mjs',

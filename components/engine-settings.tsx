@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { liveApi, useData } from './live-pihole';
+import { GravityControl } from './gravity-control';
 
 type Entry = { id: number; name?: string; address?: string; type?: string; enabled: boolean; comment: string | null; groups?: number[] };
 export function EngineSettings() {
@@ -35,5 +36,6 @@ export function EngineSettings() {
       <div className="sph-actions"><Button disabled={!name.trim() || busy || !status.data?.writeEnabled} onClick={() => void write({ action: kind === 'groups' ? 'group-save' : 'list-save', create: !entry, expected: entry, name, previous: entry?.name, address: name, type: listType, enabled, groups: groupIds.split(',').map(x => Number(x.trim())), comment: comment || null }, `${entry ? 'Update' : 'Create'} ${name} in live Pi-hole?`)}>Save live {kind === 'groups' ? 'group' : 'subscription'}</Button>
       {entry && <Button variant="outline" disabled={busy || !status.data?.writeEnabled || (kind === 'groups' && entry.id === 0)} onClick={() => void write({ action: kind === 'groups' ? 'group-delete' : 'list-delete', expected: entry, name: entry.name, previous: entry.name, address: entry.address, type: entry.type }, `Delete ${entry.name ?? entry.address}? This changes filtering for associated devices.`)}>Delete selected</Button>}</div>
     </section>
+    <GravityControl />
   </>;
 }
