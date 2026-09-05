@@ -15,7 +15,6 @@ import {
   YAxis,
   PieChart,
   Pie,
-  Cell,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
 import { Button } from './ui/button';
@@ -173,7 +172,10 @@ function Breakdown({
             >
               <PieChart accessibilityLayer>
                 <Pie
-                  data={valid}
+                  data={valid.map((row, i) => ({
+                    ...row,
+                    fill: colors[i % colors.length],
+                  }))}
                   dataKey="value"
                   nameKey="name"
                   innerRadius="65%"
@@ -181,11 +183,7 @@ function Breakdown({
                   paddingAngle={2}
                   stroke="none"
                   isAnimationActive={false}
-                >
-                  {valid.map((row, i) => (
-                    <Cell key={row.name} fill={colors[i % colors.length]} />
-                  ))}
-                </Pie>
+                />
                 <ChartTooltip content={<ChartTooltipContent hideLabel />} />
               </PieChart>
             </ChartContainer>
@@ -222,16 +220,21 @@ function Breakdown({
 export function DnsVisuals({
   data,
   focus,
+  rangeHours,
 }: {
   data: DashboardData;
   focus: (f: QueryFocus) => void;
+  rangeHours?: number;
 }) {
   const [hours, setHours] = useState('24'),
     [hidden, setHidden] = useState<string[]>([]);
-  const traffic = timeline(data.history?.history ?? [], Number(hours));
+  const traffic = timeline(
+    data.history?.history ?? [],
+    rangeHours ?? Number(hours),
+  );
   const devices = clientTimeline(
     data.clientHistory ?? { clients: {}, history: [] },
-    Number(hours),
+    rangeHours ?? Number(hours),
   );
   const toggle = (key: string) =>
     setHidden((old) =>
@@ -260,16 +263,20 @@ export function DnsVisuals({
             <h2>Queries over time</h2>
             <p>Every request, grouped by the response Pi-hole recorded.</p>
           </div>
-          <Choice
-            label="Chart window"
-            value={hours}
-            onChange={setHours}
-            options={[
-              { value: '1', label: 'Last hour' },
-              { value: '6', label: 'Last 6 hours' },
-              { value: '24', label: 'Last 24 hours' },
-            ]}
-          />
+          {rangeHours === undefined ? (
+            <Choice
+              label="Chart window"
+              value={hours}
+              onChange={setHours}
+              options={[
+                { value: '1', label: 'Last hour' },
+                { value: '6', label: 'Last 6 hours' },
+                { value: '24', label: 'Last 24 hours' },
+              ]}
+            />
+          ) : (
+            <small>Full selected database interval</small>
+          )}
         </div>
         <div className="sph-legend">
           {Object.entries(series).map(([key, item]) => (
@@ -334,9 +341,10 @@ export function DnsVisuals({
             </ChartContainer>
             <p className="nc-helper">
               {stamp(traffic.rows[0].timestamp)} –{' '}
-              {stamp(traffic.rows.at(-1)!.timestamp)} · Browser local time; labels mark bucket centers.
-              Click a bar or use the sample table to inspect that interval. The
-              window filters returned history, not the summary totals.
+              {stamp(traffic.rows.at(-1)!.timestamp)} · Browser local time;
+              labels mark bucket centers. Click a bar or use the sample table to
+              inspect that interval. The window filters returned history, not
+              the summary totals.
             </p>
             <details className="sph-chart-data">
               <summary>Query samples & keyboard-accessible drill-down</summary>
@@ -381,10 +389,10 @@ export function DnsVisuals({
           </>
         )}
         {traffic.omitted > 0 && (
-          <p role="status">
+          <output>
             {traffic.omitted} inconsistent samples omitted; missing counts were
             not replaced with zero.
-          </p>
+          </output>
         )}
       </section>
       <section className="panel sph-chart-panel">
@@ -392,8 +400,10 @@ export function DnsVisuals({
           <span className="eyebrow">DEVICE RHYTHM</span>
           <h2>Client activity</h2>
           <p>
-            Top eight DNS clients and the remaining clients. This is request
-            volume, not bandwidth or time spent online.
+            {rangeHours === undefined
+              ? 'Top eight DNS clients and the remaining clients.'
+              : 'Clients returned for the selected database interval.'}{' '}
+            This is request volume, not bandwidth or time spent online.
           </p>
         </div>
         {!data.clientHistory ? (
@@ -467,7 +477,7 @@ export function DnsVisuals({
           </>
         )}
         {devices.omitted > 0 && (
-          <p role="status">{devices.omitted} invalid client samples omitted.</p>
+          <output>{devices.omitted} invalid client samples omitted.</output>
         )}
       </section>
       <div className="nc-two">

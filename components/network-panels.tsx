@@ -112,6 +112,9 @@ export function CountriesPanel() {
         title="Country controls"
         description="Choose the DNS answer locations your policies should restrict."
       />
+      <section className="panel"><h2>Connection countries: unavailable</h2><p>Pi-hole records DNS questions, not inbound Internet connections. No router flow collector or GeoIP enforcement is connected. Country flags and byte totals cannot be inferred from domain names.</p><label className="sph-check"><Switch disabled checked={false} />Enforce US-only connections · requires a gateway connector</label><p>The country checklist below is a policy design tool, not a live firewall.</p>
+        <Button variant="outline" onClick={() => r.change({ ...state, countries: { ...state.countries, enabled: true, blocked: countries.filter(c => c.code !== 'US').map(c => c.code), unknown: 'block' } })}>Prepare US-only policy in simulator</Button>
+      </section>
       <div className="nc-two">
         <section className="panel">
           <Toggle
