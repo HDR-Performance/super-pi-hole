@@ -1,0 +1,38 @@
+name: Build and test
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm test
+      - run: npx tsc --noEmit
+      - run: npm run build:server
+      - run: npm run package:server
+      - run: docker build -t super-pi-hole:ci .
+      - name: Container smoke test (no Pi-hole connection)
+        shell: bash
+        run: |
+          docker run -d --name sph-ci --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+            --tmpfs /tmp:size=64m --mount type=volume,src=sph-ci-data,dst=/data \
+            -p 127.0.0.1:20721:8080 -e PUBLIC_ORIGIN=http://127.0.0.1:20721 \
+            -e SUPER_PIHOLE_PASSWORD=ci-only-long-test-password super-pi-hole:ci
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:20721/healthz; then break; fi
+            sleep 1
+          done
+          curl --fail http://127.0.0.1:20721/healthz
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:20721/live-api/overview)" = 401
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: super-pi-hole-server-test
+          path: release/*.tar.gz
+          if-no-files-found: error

@@ -1,0 +1,38 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY app ./app
+COPY components ./components
+COPY config ./config
+COPY hooks ./hooks
+COPY lib ./lib
+COPY server ./server
+COPY standalone ./standalone
+COPY tests ./tests
+COPY deploy ./deploy
+COPY tools ./tools
+COPY vendor-notices ./vendor-notices
+COPY vite.standalone.config.ts tsconfig.json LICENSE THIRD-PARTY-NOTICES.md ./
+RUN npm test && npm run build:server && node deploy/licenses.mjs third-party-licenses
+
+FROM node:24-bookworm-slim AS runtime
+LABEL org.opencontainers.image.title="Super Pi Hole" \
+      org.opencontainers.image.description="Experimental Pi-hole v6 companion; custom policies remain simulations" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="0.2.0-test" \
+      org.opencontainers.image.source="https://github.com/HDR-Performance/super-pi-hole"
+WORKDIR /app
+COPY --from=build /src/standalone-dist ./standalone-dist
+COPY --from=build /src/server ./server
+COPY --from=build /src/lib ./lib
+COPY --from=build /src/deploy/healthcheck.mjs ./deploy/healthcheck.mjs
+COPY --from=build /src/third-party-licenses ./third-party-licenses
+COPY --from=build /src/vendor-notices ./vendor-notices
+COPY --from=build /src/LICENSE /src/THIRD-PARTY-NOTICES.md ./
+RUN mkdir /data && chown 568:568 /data && chmod 700 /data
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080 DATA_DIR=/data STATIC_DIR=/app/standalone-dist PIHOLE_WRITE_ENABLED=false
+USER 568:568
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s CMD ["node", "/app/deploy/healthcheck.mjs"]
+CMD ["node", "server/runtime.mjs"]

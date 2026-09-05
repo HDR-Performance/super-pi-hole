@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "product": "Super Pi Hole",
+  "status": "proposed defaults; not applied to a network",
+  "reviewedOn": "2026-09-05",
+  "defaultPreset": "balanced",
+  "bundlesThirdPartyListContents": false,
+  "sources": [
+    {
+      "id": "hagezi-normal",
+      "name": "HaGeZi Normal",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/multi.txt",
+      "format": "dns-abp",
+      "purpose": "Balanced advertising and tracking protection",
+      "project": "https://github.com/hagezi/dns-blocklists",
+      "declaredLicense": "GPL-3.0",
+      "exclusiveFamily": "base"
+    },
+    {
+      "id": "hagezi-pro",
+      "name": "HaGeZi Pro",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt",
+      "format": "dns-abp",
+      "purpose": "Stricter privacy including additional telemetry",
+      "project": "https://github.com/hagezi/dns-blocklists",
+      "declaredLicense": "GPL-3.0",
+      "exclusiveFamily": "base"
+    },
+    {
+      "id": "hagezi-tif-medium",
+      "name": "HaGeZi Threat Intelligence Feeds Medium",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.medium.txt",
+      "format": "dns-abp",
+      "purpose": "Security-focused supplementary feed",
+      "project": "https://github.com/hagezi/dns-blocklists",
+      "declaredLicense": "GPL-3.0",
+      "exclusiveFamily": "tif"
+    },
+    {
+      "id": "oisd-big",
+      "name": "OISD Big",
+      "url": "https://big.oisd.nl/",
+      "format": "dns-abp",
+      "purpose": "Compatibility-focused alternative base",
+      "project": "https://oisd.nl/",
+      "declaredLicense": "Review upstream terms before redistribution",
+      "exclusiveFamily": "base"
+    },
+    {
+      "id": "hagezi-nsfw",
+      "name": "HaGeZi NSFW",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/nsfw.txt",
+      "format": "dns-abp",
+      "purpose": "Optional adult-content filter for selected family profiles",
+      "project": "https://github.com/hagezi/dns-blocklists",
+      "declaredLicense": "GPL-3.0",
+      "exclusiveFamily": "adult-content"
+    },
+    {
+      "id": "hagezi-gambling",
+      "name": "HaGeZi Gambling",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/gambling.txt",
+      "format": "dns-abp",
+      "purpose": "Optional gambling filter for selected family profiles",
+      "project": "https://github.com/hagezi/dns-blocklists",
+      "declaredLicense": "GPL-3.0",
+      "exclusiveFamily": "gambling"
+    },
+    {
+      "id": "hagezi-social",
+      "name": "HaGeZi Social Networks",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/social.txt",
+      "format": "dns-abp",
+      "purpose": "Optional whole-service social network restriction or schedule",
+      "project": "https://github.com/hagezi/dns-blocklists",
+      "declaredLicense": "GPL-3.0",
+      "exclusiveFamily": "social"
+    }
+  ],
+  "presets": [
+    {
+      "id": "balanced",
+      "name": "Balanced default",
+      "scope": "network baseline",
+      "sources": ["hagezi-normal", "hagezi-tif-medium"],
+      "note": "Conservative product choice; validate household compatibility before deployment."
+    },
+    {
+      "id": "privacy",
+      "name": "Enhanced privacy",
+      "scope": "opt-in profile or network",
+      "sources": ["hagezi-pro", "hagezi-tif-medium"],
+      "note": "Replaces the balanced base rather than stacking Normal and Pro."
+    },
+    {
+      "id": "compatibility",
+      "name": "Compatibility first",
+      "scope": "alternative network baseline",
+      "sources": ["oisd-big"],
+      "note": "Alternative to the other base presets, not an additional blanket list."
+    },
+    {
+      "id": "parental-content",
+      "name": "Parental content pack",
+      "scope": "assigned family profiles only",
+      "sources": ["hagezi-nsfw", "hagezi-gambling"],
+      "inheritsBaseline": true,
+      "note": "Opt-in; age presets still need review. SafeSearch and YouTube restrictions are separate controls."
+    },
+    {
+      "id": "social-schedule",
+      "name": "Social-media schedule pack",
+      "scope": "assigned profiles during a chosen schedule",
+      "sources": ["hagezi-social"],
+      "inheritsBaseline": true,
+      "note": "Blocks whole social services, not just advertising. Off by default."
+    }
+  ],
+  "deploymentGates": [
+    "Explicitly review and apply the desired policy; this catalog performs no live writes.",
+    "Validate supported DNS syntax, reject HTML and error responses, and alert on unexpected count changes.",
+    "Retain a last-known-good snapshot on a failed update; implement verified rollback.",
+    "Use one base preset at a time. Do not enable optional parental or bypass restrictions for every device.",
+    "Keep upstream attribution and distribution notices. Review feed terms before bundling data or a commercial release.",
+    "Do not interpret fewer or more entries as a measured protection score. Test printing, updates, streaming, school and work services.",
+    "Gateway country policies and provider SafeSearch mappings are separate from domain-list selection."
+  ]
+}
