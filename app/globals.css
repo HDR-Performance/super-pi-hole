@@ -9,10 +9,16 @@
 .sph-login-card form { display: grid; gap: 14px; }
 .sph-login-card small, .sph-sub { color: var(--muted-foreground); }
 .sph-sub { display: block; }
-.sph-live { display: grid; gap: 20px; min-width: 0; }
-.sph-live [data-slot='tabs-content'] { display: grid; gap: 20px; font-size: 1rem; }
+.sph-live { display: grid; gap: 12px; min-width: 0; }
+.sph-live [data-slot='tabs-content'] { display: grid; gap: 14px; font-size: 1rem; }
 .sph-live [data-slot='tabs-content'][hidden] { display: none; }
-.sph-live .panel { min-width: 0; display: grid; gap: 16px; }
+.sph-live .panel { min-width: 0; display: grid; align-content: start; gap: 12px; margin-top: 0; padding: 18px; }
+.sph-live .nc-two [data-slot='table'] { min-width: 0; }
+.sph-live .nc-heading { margin: 0; }
+.sph-live .nc-heading h1 { font-size: 28px; }
+.sph-live .section-head { margin-bottom: 0; }
+.sph-live .pc-feedback:empty { display: none; }
+.sph-live .sph-actions > .nc-field { flex: 0 1 240px; }
 .sph-live td { max-width: 450px; white-space: normal; overflow-wrap: anywhere; }
 .sph-live .sph-tabs { flex-wrap: wrap; height: auto; width: 100%; gap: 4px; justify-content: flex-start; }
 .sph-tabs [data-slot='tabs-trigger'] { min-height: 42px; padding: 8px 12px; }
@@ -22,6 +28,48 @@
 .sph-groups legend { margin-bottom: 8px; }
 .sph-groups label { display: flex; align-items: center; gap: 8px; }
 .sph-admin-link { color: var(--primary); display: inline-flex; gap: 5px; align-items: center; text-decoration: underline; }
+.sph-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.sph-metric { text-align: left; border: 1px solid var(--border); border-radius: 16px; padding: 19px; min-width: 0; color: #f8fbff; background: #173d49; box-shadow: 0 5px 15px #172d3b10; cursor: pointer; transition: transform .15s; }
+.sph-metric:hover { transform: translateY(-3px); }
+.sph-metric:focus-visible, .sph-legend button:focus-visible, .sph-chart-key button:focus-visible, .sph-domain-link:focus-visible { outline: 3px solid #809eff; outline-offset: 3px; }
+.sph-metric-1 { background: #4d3537; } .sph-metric-2 { background: #564628; } .sph-metric-3 { background: #28493f; }
+.sph-metric-label, .sph-metric-detail { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sph-metric-label { font-size: 13px; font-weight: 650; color: #e9f0f6; }
+.sph-metric strong { display: block; font-size: clamp(24px, 2.8vw, 38px); margin: 12px 0; letter-spacing: -1px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.sph-metric-detail { font-size: 11px; color: #d4dfe6; line-height: 1.5; }
+.sph-metric svg { flex-shrink: 0; }
+.sph-chart-panel h2 { margin: 4px 0; } .sph-chart-panel p { color: var(--muted-foreground); font-size: 13px; }
+.sph-timeline { height: 260px; width: 100%; aspect-ratio: auto; }
+.sph-legend, .sph-client-key { display: flex; gap: 9px; flex-wrap: wrap; }
+.sph-legend button, .sph-client-key > li { border: 1px solid var(--border); border-radius: 8px; padding: 7px 11px; font-size: 12px; }
+.sph-legend button, .sph-client-key button { display: inline-flex; align-items: center; gap: 8px; }
+.sph-legend button[aria-pressed=false], .sph-client-key button[aria-pressed=false] { opacity: .45; text-decoration: line-through; }
+.sph-dot { display: inline-block; flex-shrink: 0; width: 9px; height: 9px; border-radius: 3px; }
+.sph-client-key { list-style: none; padding: 0; }
+.sph-client-key > li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sph-client-key small { color: var(--muted-foreground); }
+.sph-donut-layout { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sph-donut { position: relative; flex: 1 1 180px; min-width: 160px; }
+.sph-donut-chart { height: 220px; aspect-ratio: auto; }
+.sph-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.sph-donut-center strong { font-size: 25px; } .sph-donut-center span { color: var(--muted-foreground); font-size: 11px; }
+.sph-chart-key { flex: 1 1 180px; padding: 0; list-style: none; min-width: 0; }
+.sph-chart-key button { display: grid; grid-template-columns: 9px minmax(50px, 1fr) auto auto; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 10px 5px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.sph-chart-key button span { overflow-wrap: anywhere; } .sph-chart-key small { color: var(--muted-foreground); }
+.sph-chart-data { font-size: 12px; } .sph-chart-data summary { cursor: pointer; color: var(--primary); }
+.sph-chart-data > div { max-height: 300px; overflow: auto; margin-top: 12px; }
+.sph-chart-data table { width: 100%; } .sph-chart-data td, .sph-chart-data th { padding: 8px; text-align: left; border-bottom: 1px solid var(--border); }
+.sph-domain-link { color: var(--primary); text-align: left; overflow-wrap: anywhere; }
+.sph-rank { position: relative; display: block; padding: 6px 10px; min-width: 90px; isolation: isolate; text-align: right; }
+.sph-rank > span { position: absolute; left: 0; top: 2px; bottom: 2px; border-radius: 4px; background: #37c4ae28; z-index: -1; }
+.sph-privacy { display: grid; gap: 20px; }
+.sph-privacy-card { display: grid; align-content: start; gap: 13px; border: 1px solid var(--border); padding: 22px; border-radius: 14px; min-width: 0; }
+.sph-privacy-card h3 { font-size: 20px; font-weight: 650; } .sph-privacy-card p { font-size: 13px; line-height: 1.65; }
+.sph-privacy-card a { color: var(--primary); display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.sph-privacy-card input { font-size: 11px; } .sph-privacy details { font-size: 13px; line-height: 1.7; }
+.sph-privacy details ul { list-style: disc; padding-left: 20px; margin: 14px 0; }
+@media (max-width: 1100px) { .sph-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .sph-metrics { gap: 8px; } .sph-metric { padding: 13px; } .sph-metric-label { font-size: 11px; } .sph-metric-label svg { width: 18px; } .sph-timeline { height: 220px; } .sph-chart-panel .section-head { flex-wrap: wrap; gap: 12px; } .sph-privacy-card { padding: 16px; } }
 
 @custom-variant dark (&:is(.dark *));
 

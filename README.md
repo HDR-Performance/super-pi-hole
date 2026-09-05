@@ -13,11 +13,13 @@ Pi-hole, TrueNAS, TP-Link, NETGEAR, and Ubiquiti do not sponsor or endorse it.
 | Capability | Status |
 | --- | --- |
 | Live DNS statistics, top clients/domains, upstream performance | Pi-hole v6 API connector |
+| Query/client timelines, query-type and upstream donuts | Live data; selectable series, 1/6/24-hour chart windows, query drill-down and optional refresh |
 | Query log, domain/client/result filters, older-query pagination | Live, up to 100 requests per page |
 | Enable blocking and timed pauses | Live; server unlock and per-action confirmation required |
 | Exact and regex allow/deny rules with explicit Pi-hole groups | Live add/remove; not a per-device rule unless Pi-hole group assignments make it so |
 | Local A/AAAA host records | Live add/remove of one record at a time |
-| Lists, groups, configured client assignments | Live read-only views; edit in original Pi-hole |
+| Lists, groups, configured client assignments | Live views; existing records remain managed in original Pi-hole |
+| Windows/Microsoft and LG webOS privacy packs | Opt-in HaGeZi subscriptions with explicit Pi-hole groups and confirmation; run Update Gravity in original Pi-hole afterwards |
 | DHCP, CNAMEs, DNSSEC, gravity updates, Teleporter, diagnostics | Retained via original administration interface; not reimplemented |
 | Administrator login and persistent app configuration | Standalone Node runtime; local SQLite and session cookies |
 | Country selection, parental controls, schedules, category presets | **Saved policy simulations only; no live enforcement** |
@@ -89,6 +91,31 @@ is for fabricated test data only and must never be used for an installation.
 
 See [SECURITY.md](SECURITY.md), [CONTRIBUTING.md](CONTRIBUTING.md), and
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+### Device telemetry presets
+
+The Blocklists page explains the Windows/Microsoft and LG webOS packs. Install
+them from **Live Pi-hole → Lists**, after explicitly unlocking server-side
+writes and selecting existing device-specific Pi-hole groups. Neither is added
+automatically to the balanced preset. A subscription is not a successful feed
+download: use the original Pi-hole to update gravity and check its download
+status. Existing subscriptions are never silently overwritten or reassigned.
+
+These [HaGeZi native-tracker lists](https://github.com/hagezi/dns-blocklists)
+are stricter than the native-tracker subset in the balanced tiers, can overlap
+other lists, and may affect useful services. Test Windows updates, security,
+sign-in and Office, or TV streaming, casting and firmware updates. Pair DNS
+filtering with OS/TV privacy settings; it cannot guarantee that all telemetry
+or automatic-content-recognition traffic is stopped. See also
+[Microsoft's diagnostics guidance](https://learn.microsoft.com/en-us/windows/privacy/configure-windows-diagnostic-data-in-your-organization).
+
+Charts show DNS counts, not bandwidth, visited URLs or family screen time.
+Timestamps use the browser's local time zone and mark the centers of Pi-hole's
+history buckets; interval drill-down includes both halves of that bucket. The chart window filters the
+history returned by Pi-hole; summary cards and donut totals retain Pi-hole's
+reporting window. Client identity may be hidden by DNS proxies or privacy
+settings. A clickable chart interval filters the query log, whose retained
+history can be shorter than the aggregate chart history.
 
 ## Roadmap
 

@@ -44,6 +44,7 @@ import { categories } from '@/lib/parental-policy';
 import { countries, countryName } from '@/lib/countries';
 import { inspectListContent, inspectListUrl } from '@/lib/blocklist-health';
 import catalog from '@/config/blocklist-presets.json';
+import { PrivacyPacks } from './privacy-packs';
 export function EventTable({ rows }: { rows: ReviewEvent[] }) {
   const r = useReview();
   const [rule, setRule] = useState<Rule | null>(null);
@@ -439,6 +440,7 @@ export function BlocklistsPanel() {
           implied.
         </p>
       </section>
+      <PrivacyPacks />
       <section className="panel">
         <h2>List health inspector</h2>
         <p>

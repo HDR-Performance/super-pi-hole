@@ -15,6 +15,7 @@ mkdirSync(target, { recursive: true });
 const paths = [
   'standalone-dist', 'server/runtime.mjs', 'server/review-service.mjs', 'server/pihole-service.mjs', 'server/migrations',
   'lib/network-policy.ts', 'lib/parental-policy.ts', 'lib/countries.ts',
+  'config/blocklist-presets.json',
   'deploy/truenas.yaml', 'deploy/init-data.mjs', 'deploy/healthcheck.mjs', 'deploy/verify-bundle.mjs',
   'tools/upgrade-plan.mjs', 'README.md', 'DEPLOYMENT.md', 'UPGRADING.md', 'SECURITY.md', 'THIRD-PARTY-NOTICES.md', 'LICENSE', 'vendor-notices',
 ];

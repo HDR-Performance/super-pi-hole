@@ -7,6 +7,26 @@
   "bundlesThirdPartyListContents": false,
   "sources": [
     {
+      "id": "hagezi-windows",
+      "name": "Windows & Microsoft telemetry",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/native.winoffice.txt",
+      "format": "dns-abp",
+      "purpose": "Opt-in Microsoft native trackers, including Windows, Office and MSN; broader than diagnostics alone",
+      "project": "https://github.com/hagezi/dns-blocklists#native",
+      "declaredLicense": "GPL-3.0",
+      "exclusiveFamily": "windows-telemetry"
+    },
+    {
+      "id": "hagezi-lg",
+      "name": "LG webOS telemetry",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/native.lgwebos.txt",
+      "format": "dns-abp",
+      "purpose": "Opt-in LG webOS native tracking destinations; not a complete ACR or streaming-app privacy guarantee",
+      "project": "https://github.com/hagezi/dns-blocklists#native",
+      "declaredLicense": "GPL-3.0",
+      "exclusiveFamily": "lg-telemetry"
+    },
+    {
       "id": "hagezi-normal",
       "name": "HaGeZi Normal",
       "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/multi.txt",
@@ -78,6 +98,22 @@
     }
   ],
   "presets": [
+    {
+      "id": "windows-telemetry",
+      "name": "Windows privacy pack",
+      "scope": "selected Pi-hole Windows-device groups only",
+      "sources": ["hagezi-windows"],
+      "inheritsBaseline": true,
+      "note": "Off by default. Stricter than the balanced baseline. Can affect diagnostics and Microsoft features; test Windows Update, Defender, sign-in, Office and Xbox before extending coverage."
+    },
+    {
+      "id": "lg-telemetry",
+      "name": "LG smart-TV privacy pack",
+      "scope": "selected Pi-hole LG-TV groups only",
+      "sources": ["hagezi-lg"],
+      "inheritsBaseline": true,
+      "note": "Off by default. Test streaming, casting, the app store and firmware updates. Review Live Plus, viewing-information consent and ad personalization on the TV as well; menu names vary."
+    },
     {
       "id": "balanced",
       "name": "Balanced default",

@@ -26,6 +26,7 @@ WORKDIR /app
 COPY --from=build /src/standalone-dist ./standalone-dist
 COPY --from=build /src/server ./server
 COPY --from=build /src/lib ./lib
+COPY --from=build /src/config ./config
 COPY --from=build /src/deploy/healthcheck.mjs ./deploy/healthcheck.mjs
 COPY --from=build /src/third-party-licenses ./third-party-licenses
 COPY --from=build /src/vendor-notices ./vendor-notices

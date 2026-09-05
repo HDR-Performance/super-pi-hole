@@ -84,3 +84,12 @@ test('proposed presets reference valid unique sources and one base family', () =
   for (const source of config.sources)
     assert.equal(inspectListUrl(source.url).accepted, true);
 });
+test('Windows and LG privacy packs are opt-in and never part of the default preset', () => {
+  const config = JSON.parse(readFileSync(new URL('../config/blocklist-presets.json', import.meta.url), 'utf8'));
+  const baseline = config.presets.find(p => p.id === config.defaultPreset);
+  for (const id of ['hagezi-windows', 'hagezi-lg']) {
+    assert.ok(config.sources.some(s => s.id === id));
+    assert.ok(!baseline.sources.includes(id));
+    assert.match(config.presets.find(p => p.sources.includes(id)).note, /Off by default/);
+  }
+});
