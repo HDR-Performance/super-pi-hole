@@ -54,10 +54,12 @@ await eventually(() => dns('allowed.test') === '192.0.2.42', 'Native allowlist p
 assert.ok(state.events.length > 0);
 await api('/live-api/family/ack', { id: state.events[0].id });
 // Engine-owned timer must resume even without a browser.
+const blockingState = async () => (await api('/live-api/overview')).data.blocking;
 await act({ action: 'blocking', blocking: false, timer: 2 });
-await eventually(async () => (await api('/live-api/blocking')).blocking === 'enabled', 'Timed blocking did not resume.');
+assert.equal((await blockingState()).blocking, 'disabled');
+await eventually(async () => (await blockingState()).blocking === 'enabled', 'Timed blocking did not resume.');
 await act({ action: 'blocking', blocking: false, timer: null });
-assert.equal((await api('/live-api/blocking')).blocking, 'disabled');
+assert.equal((await blockingState()).blocking, 'disabled');
 await act({ action: 'blocking', blocking: true, timer: null });
 const settings = await api('/live-api/settings');
 const field = settings.fields.find(row => row.path === 'dns.domainNeeded');
