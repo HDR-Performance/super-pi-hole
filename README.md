@@ -22,7 +22,7 @@ Pi-hole, TrueNAS, TP-Link, NETGEAR, and Ubiquiti do not sponsor or endorse it.
 | Local A/AAAA host records | Live add/remove of one record at a time |
 | Observed device inventory, manual IP/MAC selection, history and groups | Live five-second inventory; real group assignment with stale-edit protection |
 | Lists, groups, configured client assignments | Live management in Super Pi Hole; no default policies overwrite existing settings |
-| Windows/Microsoft and LG webOS privacy packs | Opt-in HaGeZi subscriptions with explicit Pi-hole groups and confirmation; run Update Gravity in original Pi-hole afterwards |
+| Windows/Microsoft and LG webOS privacy packs | Opt-in HaGeZi subscriptions with explicit Pi-hole groups and confirmation; refresh Gravity in Advanced Pi-hole afterwards |
 | DNS, DHCP, DNSSEC, NTP, resolver and database settings | Advanced JSON editor submits changed fields only; listener/auth/filesystem settings are deployment-managed |
 | Gravity refresh | Live job with bounded output; no application-code update |
 | Original Pi-hole interface | Read-only through authenticated Super Pi Hole in integrated mode |
@@ -115,7 +115,7 @@ The Blocklists page explains the Windows/Microsoft and LG webOS packs. Install
 them from **Live Pi-hole → Lists**, after explicitly unlocking server-side
 writes and selecting existing device-specific Pi-hole groups. Neither is added
 automatically to the balanced preset. A subscription is not a successful feed
-download: use the original Pi-hole to update gravity and check its download
+download: use Advanced Pi-hole to refresh Gravity and check its download
 status. Existing subscriptions are never silently overwritten or reassigned.
 
 These [HaGeZi native-tracker lists](https://github.com/hagezi/dns-blocklists)

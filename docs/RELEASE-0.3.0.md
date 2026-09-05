@@ -20,6 +20,21 @@ listener moves from LAN port 20720 to loopback 20720. The main UI stays on 20721
 The dashboard refreshes every five seconds by default. Record creation now
 works over LAN HTTP without secure-context-only browser APIs.
 
+Devices now shows the engine's observed inventory with a scrollable selection
+list and manual IP/MAC entry. Select a device for its DNS query history,
+allowed/blocked filters, and real Pi-hole filtering-group assignments. Assignment
+writes check for conflicting edits and verify the engine's resulting state.
+Advanced Pi-hole manages live groups, subscriptions, selected engine settings,
+Gravity refresh jobs and Teleporter backup downloads.
+
+Validation: 83 automated tests, TypeScript checks, standalone GUI build, Compose
+validation and a Linux amd64 integrated-container smoke test passed before
+publication. The container test covers verified backup copies, allowed/blocked
+DNS, authenticated controller writes, observed inventory, group/client writes,
+Teleporter ZIP integrity, original-viewer access, rejection of stock-interface
+writes, and DNS-rule persistence after restart. Browser visual review and a
+migration of an actual TrueNAS dataset remain separate, uncompleted checks.
+
 Important scope: country, family and schedule policy-lab simulations are not
 automatically deployed to DNS. DNS observations are requested domains, not
 proof of visited pages or a complete network scan. Universal HTTPS block-page
@@ -29,7 +44,8 @@ used in CI; test fixtures do not establish a successful NAS migration.
 ## Upgrade
 
 Read `docs/INTEGRATED-UPGRADE.md`, save the old YAML, stop the old companion on
-20721, and replace the existing `pihole` app YAML with the release asset. Set a
+20721, and replace the existing `pihole` app YAML with the digest-pinned
+`super-pi-hole-truenas-upgrade.yaml` release asset. Set a
 unique Super Pi Hole administrator password before saving. Never delete the old
 Pi-hole app/data to perform this upgrade. Do not point a second DNS container at
 the same live directories. Back up/snapshot the datasets independently first.

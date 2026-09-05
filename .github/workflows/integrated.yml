@@ -33,5 +33,15 @@ jobs:
           docker tag super-pi-hole:ci "ghcr.io/hdr-performance/super-pi-hole:$VERSION"
           docker push "ghcr.io/hdr-performance/super-pi-hole:$VERSION"
           docker image inspect "ghcr.io/hdr-performance/super-pi-hole:$VERSION" --format '{{index .RepoDigests 0}}' > image-digest.txt
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const digest = fs.readFileSync("image-digest.txt", "utf8").trim();
+            if (!/^ghcr\.io\/hdr-performance\/super-pi-hole@sha256:[a-f0-9]{64}$/.test(digest)) throw new Error("Invalid published digest");
+            const yaml = fs.readFileSync("deploy/truenas-upgrade.yaml", "utf8");
+            const image = `ghcr.io/hdr-performance/super-pi-hole:${process.env.GITHUB_REF_NAME.slice(1)}`;
+            if (yaml.split(image).length !== 4) throw new Error("Expected three pinned services");
+            fs.writeFileSync("super-pi-hole-truenas-upgrade.yaml", yaml.replaceAll(image, digest));'
+          docker compose -f super-pi-hole-truenas-upgrade.yaml config --quiet
+          sha256sum super-pi-hole-truenas-upgrade.yaml image-digest.txt > SHA256SUMS.txt
           gh release create "$GITHUB_REF_NAME" --verify-tag --prerelease --title "Super Pi Hole $VERSION — integrated DNS" \
-            --notes-file docs/RELEASE-0.3.0.md deploy/truenas-upgrade.yaml image-digest.txt
+            --notes-file docs/RELEASE-0.3.0.md super-pi-hole-truenas-upgrade.yaml image-digest.txt SHA256SUMS.txt
