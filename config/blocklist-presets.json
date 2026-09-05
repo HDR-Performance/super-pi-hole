@@ -119,7 +119,7 @@
       "name": "Balanced default",
       "scope": "network baseline",
       "sources": ["hagezi-normal", "hagezi-tif-medium"],
-      "note": "Conservative product choice; validate household compatibility before deployment."
+      "note": "Keeps YouTube and social media available. Blocks known malware, phishing, scam, advertising and tracking domains. Platform bans and adult-content filters are separate opt-ins. No list catches every threat; existing rules still apply."
     },
     {
       "id": "privacy",
