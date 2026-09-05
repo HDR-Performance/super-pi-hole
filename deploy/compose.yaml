@@ -4,7 +4,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.companion
-    image: super-pi-hole-companion:0.3.0-test
+    image: super-pi-hole-companion:0.4.0-test
     restart: unless-stopped
     init: true
     user: '568:568'
