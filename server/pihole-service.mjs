@@ -243,6 +243,15 @@ export function createPiholeClient({
   };
   return {
     info,
+    async exportSettings() {
+      if (!base) throw fail(503, 'DNS engine is not connected.');
+      if (password && !sid) await login();
+      const response = await fetchImpl(new URL('teleporter', base), { redirect: 'error', headers: sid ? { 'X-FTL-SID': sid } : {}, signal: AbortSignal.timeout(30000) });
+      if (!response.ok || !response.headers.get('content-type')?.includes('zip')) throw fail(502, 'The engine did not return a Teleporter ZIP. Refresh authentication before retrying.');
+      let size = 0; const chunks = [];
+      for await (const chunk of response.body ?? []) { size += chunk.length; if (size > 67108864) throw fail(502, 'Teleporter export exceeded 64 MiB. Use a dataset snapshot instead.'); chunks.push(Buffer.from(chunk)); }
+      return Buffer.concat(chunks);
+    },
     async stockRead(path) {
       if (!controlled || !/^(?:stats|history|queries|domains|lists|groups|clients|config|info|network|dhcp|dns|search)(?:[/?]|$)/.test(path) || path.includes('..') || path.includes('\\')) throw fail(403, 'Unsupported stock view.');
       return request(path);
@@ -448,6 +457,10 @@ export function createPiholeClient({
           }
           await request(path, method, payload);
           const verified = await request(readback);
+          if (body.action === 'client-assign') {
+            const actual = verified.clients?.find(c => c.client.toLowerCase() === body.client.toLowerCase());
+            if (!actual || JSON.stringify([...actual.groups].sort()) !== JSON.stringify([...new Set(body.groups)].sort())) throw fail(502, 'The change was submitted but group readback did not match. Reload before retrying.');
+          }
           return { ok: true, verified, message: 'Engine accepted the change and current settings were read back. Test the affected device to verify its DNS behavior.' };
         } finally { mutating = false; }
       }
@@ -569,6 +582,10 @@ export function createLiveMiddleware(client) {
     if (!url.pathname.startsWith('/live-api/')) return next?.();
     try {
       const resource = url.pathname.slice('/live-api/'.length);
+      if (req.method === 'GET' && resource === 'teleporter') {
+        const archive = await client.exportSettings();
+        res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="super-pi-hole-settings.zip"', 'Cache-Control': 'no-store' }); return res.end(archive);
+      }
       if (req.method === 'GET')
         return json(
           res,
@@ -582,7 +599,7 @@ export function createLiveMiddleware(client) {
         resource === 'action' &&
         req.headers['x-super-pihole-review'] === '1'
       )
-        return json(res, 200, await client.act(await readJson(req, 16384)));
+        return json(res, 200, await client.act(await readJson(req, 1048576)));
       throw fail(405, 'Unsupported request.');
     } catch (error) {
       json(res, error.status ?? 500, {

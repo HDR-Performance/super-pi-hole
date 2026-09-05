@@ -36,7 +36,11 @@ cookie=$(mktemp)
 curl --fail -s -c "$cookie" -H 'Origin: http://127.0.0.1:20721' -H 'Content-Type: application/json' \
   -d '{"password":"ci-only-long-test-password"}' http://127.0.0.1:20721/session-api/login
 curl --fail -s -b "$cookie" http://127.0.0.1:20721/live-api/overview | jq -e '.data.summary.queries.total > 0'
-curl --fail -s -b "$cookie" http://127.0.0.1:20721/admin/ > /dev/null
+if ! curl --fail-with-body -s -b "$cookie" http://127.0.0.1:20721/admin/; then
+  docker exec sph-ci-dns curl -i -s http://127.0.0.1:20720/admin/ | head -c 4000
+  docker exec sph-ci-dns pihole-FTL --config webserver.paths
+  exit 1
+fi
 test "$(curl -s -b "$cookie" -o /dev/null -w '%{http_code}' -X PATCH -H 'Origin: http://127.0.0.1:20721' -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:20721/api/config)" = 403
 curl --fail -s -b "$cookie" -H 'Origin: http://127.0.0.1:20721' -H 'Content-Type: application/json' -H 'X-Super-Pihole-Review: 1' \
   -d '{"action":"domain-add","domain":"controller.test","type":"deny","kind":"exact","enabled":true,"groups":[0],"confirmed":true}' http://127.0.0.1:20721/live-api/action

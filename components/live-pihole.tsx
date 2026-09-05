@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { RefreshCw, ExternalLink, LockKeyhole } from 'lucide-react';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
@@ -115,9 +115,14 @@ export async function liveApi<T>(
 export function useData<T>(path: string, revision: number) {
   const [data, setData] = useState<T | null>(null),
     [error, setError] = useState('');
+  const active = useRef<AbortController | null>(null), previousPath = useRef(path);
+  useEffect(() => () => { active.current?.abort(); }, [path]);
   useEffect(() => {
+    // Slow reads are allowed to finish instead of being cancelled by each tick.
+    if (active.current && !active.current.signal.aborted) return;
     const abort = new AbortController();
-    setData(null);
+    active.current = abort;
+    if (previousPath.current !== path) { setData(null); previousPath.current = path; }
     setError('');
     liveApi<T>(path, abort.signal)
       .then((value) => {
@@ -125,8 +130,7 @@ export function useData<T>(path: string, revision: number) {
       })
       .catch((e) => {
         if (!abort.signal.aborted) setError(e.message);
-      });
-    return () => abort.abort();
+      }).finally(() => { if (active.current === abort) active.current = null; });
   }, [path, revision]);
   return { data, error };
 }

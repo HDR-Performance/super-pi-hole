@@ -1,0 +1,12 @@
+.sph-engine .panel > label, .sph-devices .panel > label { display: block; margin: 14px 0; font-size: 13px; font-weight: 600; }
+.sph-engine input:not([type='checkbox']), .sph-engine select, .sph-engine textarea,
+.sph-devices input:not([type='checkbox']), .sph-devices select { display: block; width: 100%; border: 1px solid #3a4e63; border-radius: 9px; padding: 10px 12px; background: #152333; color: #eef5fa; margin-top: 6px; }
+.sph-engine input[type='checkbox'], .sph-devices input[type='checkbox'] { accent-color: #4ed1b4; margin-right: 7px; }
+.sph-engine textarea:focus, .sph-engine input:focus, .sph-devices input:focus, .sph-devices select:focus { outline: 2px solid #4ed1b4; outline-offset: 2px; }
+.sph-engine a, .sph-devices a { color: #65deca; text-decoration: underline; }
+.sph-devices table { border-collapse: collapse; width: 100%; text-align: left; font-size: 13px; }
+.sph-devices th, .sph-devices td { padding: 12px; border-bottom: 1px solid #2b4054; }
+.sph-devices th { color: #a8c4dd; background: #101d2b; position: sticky; top: 0; }
+.sph-devices td small { display: block; color: #a8c4dd; }
+.sph-devices fieldset { border: 1px solid #2b4054; border-radius: 9px; padding: 12px; margin-top: 16px; }
+.sph-engine pre { padding: 14px; background: #0e1824; color: #bfe8db; border-radius: 9px; }

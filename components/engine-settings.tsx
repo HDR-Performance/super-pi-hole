@@ -15,11 +15,12 @@ export function EngineSettings() {
     setBusy(true); setError(''); setMessage('');
     try { const result = await liveApi<{ message: string }>('action', undefined, { ...body, confirmed: true }); setMessage(result.message); setDraft(''); setExpected(null); setEntry(null); setName(''); refresh(r => r + 1); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
-  return <>
+  return <div className="sph-engine">
     <div className="section-head"><div><p className="eyebrow">LIVE ENGINE CONTROL</p><h1>Advanced Pi-hole</h1><p>Change the bundled engine from Super Pi Hole. No simulation settings are applied here.</p></div>{status.data?.adminUrl && <a href={status.data.adminUrl} target="_blank" rel="noreferrer">Open original interface ↗</a>}</div>
     <p className="nc-review-strip">The integrated stock interface is read-only. Listener, authentication and filesystem boundaries are controlled by the deployment. NAS administrators can still change host/container configuration.</p>
     {(error || config.error || inventory.error) && <p role="alert" className="pc-error">{error || config.error || inventory.error}</p>}
     <output className="pc-feedback" aria-live="polite">{message}</output>
+    <section className="panel"><h2>Export engine settings</h2><p>Download a Pi-hole Teleporter ZIP before changing settings. It is not a full query-history or TrueNAS ACL backup; use dataset snapshots for complete rollback.</p><a href="/live-api/teleporter" download>Download Teleporter backup</a></section>
     <section className="panel"><h2>DNS engine settings</h2><p>Advanced JSON editor for existing Pi-hole settings. Changes to DNS, DHCP or upstream resolvers can interrupt connectivity. Only changed fields are submitted; unrelated settings are retained.</p>
       <label>Settings section<select value={section} onChange={e => { setSection(e.target.value); setDraft(''); setExpected(null); }}>{['dns', 'dhcp', 'ntp', 'resolver', 'database'].map(s => <option key={s}>{s}</option>)}</select></label>
       <Button variant="outline" disabled={!config.data || busy} onClick={() => { const current = config.data?.config[section]; setExpected(current); setDraft(JSON.stringify(current, null, 2)); }}>Load current section</Button>
@@ -37,5 +38,5 @@ export function EngineSettings() {
       {entry && <Button variant="outline" disabled={busy || !status.data?.writeEnabled || (kind === 'groups' && entry.id === 0)} onClick={() => void write({ action: kind === 'groups' ? 'group-delete' : 'list-delete', expected: entry, name: entry.name, previous: entry.name, address: entry.address, type: entry.type }, `Delete ${entry.name ?? entry.address}? This changes filtering for associated devices.`)}>Delete selected</Button>}</div>
     </section>
     <GravityControl />
-  </>;
+  </div>;
 }

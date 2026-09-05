@@ -17,7 +17,7 @@ export function LiveDevices() {
   };
   const rows = inventory.data?.devices.filter(d => [d.hwaddr, d.macVendor, ...d.ips.flatMap(a => [a.ip, a.name])].join(' ').toLowerCase().includes(search.toLowerCase())) ?? [];
   const device = inventory.data?.devices.find(d => d.hwaddr === selected || d.ips.some(a => a.ip === selected));
-  return <>
+  return <div className="sph-devices">
     <div className="section-head"><div><p className="eyebrow">LIVE DEVICE CENTER</p><h1>Devices on your network</h1><p>Observed by your DNS engine · refreshed every 5 seconds while visible.</p></div><Button variant="outline" onClick={() => refresh(r => r + 1)}><RefreshCw />Refresh</Button></div>
     <p className="nc-review-strip">{inventory.data?.coverage ?? 'Waiting for the connected DNS engine. No example devices are used in this view.'} A last-seen time is not proof that a device is online now.</p>
     {(inventory.error || error) && <p role="alert" className="pc-error">{inventory.error || error}</p>}
@@ -46,5 +46,5 @@ export function LiveDevices() {
       if (!window.confirm(`${type === 'deny' ? 'Block' : 'Allow'} ${domain} for the selected groups ${groups.join(', ')}? Other devices in these groups are also affected.`)) return;
       try { const result = await liveApi<{ message: string }>('action', undefined, { action: 'domain-add', domain, type, kind: 'exact', groups, enabled: true, comment: 'Super Pi Hole device history', confirmed: true }); setMessage(result.message); refresh(r => r + 1); } catch (e) { setError((e as Error).message); }
     }} />}
-  </>;
+  </div>;
 }

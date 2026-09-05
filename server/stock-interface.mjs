@@ -11,6 +11,7 @@ export function createStockInterface(client, { enabled = false, url, fetchImpl =
       // The stock UI is a read-only viewer. Never forward a browser-supplied SID.
       if (path.pathname === '/api/auth' && ['GET', 'POST'].includes(req.method)) return json(res, 200, { session: { valid: true, totp: false, sid: 'super-pi-hole-read-only', csrf: 'super-pi-hole-read-only', validity: 3600, message: 'Read-only: use Super Pi Hole to change settings.' } });
       if (req.method !== 'GET') throw fail(403, 'The original interface is read-only. Make changes in Super Pi Hole.');
+      if (path.pathname === '/api/teleporter') { const archive = await client.exportSettings(); res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="super-pi-hole-settings.zip"' }); return res.end(archive); }
       return json(res, 200, await client.stockRead(path.pathname.slice(5) + path.search));
     }
     if (!['GET', 'HEAD'].includes(req.method) || !path.pathname.startsWith('/admin/')) throw fail(403, 'The original interface is read-only.');
