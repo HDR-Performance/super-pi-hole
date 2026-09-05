@@ -1,5 +1,9 @@
 # Install Super Pi Hole alongside Pi-hole
 
+> **0.3.0 integrated release:** use [Integrated TrueNAS upgrade](docs/INTEGRATED-UPGRADE.md)
+> and `deploy/truenas-upgrade.yaml`. The instructions below are retained for
+> legacy GUI-only companion development; they are not the integrated upgrade.
+
 This package adds a web interface on a separate port. It does **not** install a
 second DNS or DHCP server, replace Pi-hole, enable blocking, or change a router.
 Use a Pi-hole v6 installation. The connector contract was checked against FTL

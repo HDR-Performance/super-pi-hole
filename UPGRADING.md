@@ -1,5 +1,8 @@
 # Non-destructive adoption and upgrades
 
+For the **0.3.0 integrated DNS upgrade**, follow [Integrated TrueNAS upgrade](docs/INTEGRATED-UPGRADE.md).
+The older additive companion path below remains available for development.
+
 ## Existing Pi-hole → Pi-hole with Super Pi Hole
 
 The first upgrade path is an **additive companion**, not an in-place conversion.
