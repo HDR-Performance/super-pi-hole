@@ -64,6 +64,7 @@ export function createPiholeClient({
   writeEnabled = false,
   fetchImpl = fetch,
   timeoutMs = 8000,
+  controlled = false,
 } = {}) {
   let base;
   if (url) {
@@ -214,7 +215,8 @@ export function createPiholeClient({
   const info = () => ({
     configured: !!base,
     writeEnabled: !!base && writeEnabled,
-    adminUrl: base ? new URL('/admin/', base).href : null,
+    adminUrl: base ? (controlled ? '/admin/' : new URL('/admin/', base).href) : null,
+    controlled,
     source: 'Pi-hole v6 API',
     coverage: 'DNS requests only',
   });
@@ -228,6 +230,10 @@ export function createPiholeClient({
   };
   return {
     info,
+    async stockRead(path) {
+      if (!controlled || !/^(?:stats|history|queries|domains|lists|groups|clients|config|info|network|dhcp|dns|search)(?:[/?]|$)/.test(path) || path.includes('..') || path.includes('\\')) throw fail(403, 'Unsupported stock view.');
+      return request(path);
+    },
     async read(resource, params = new URLSearchParams()) {
       if (resource === 'overview') {
         const paths = {

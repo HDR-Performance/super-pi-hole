@@ -4,7 +4,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: super-pi-hole:0.2.0-test
+    image: super-pi-hole:0.2.1-test
     restart: unless-stopped
     init: true
     user: '568:568'

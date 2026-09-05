@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { recordId } from '@/lib/record-id';
 import {
   Globe2,
   Plus,
@@ -370,7 +371,7 @@ export function DevicesPanel() {
           onClick={() => {
             r.setError('');
             setEdit({
-              id: crypto.randomUUID(),
+              id: recordId(),
               name: '',
               address: '',
               kind: 'other',
@@ -557,7 +558,7 @@ export function DevicesPanel() {
                   ...state,
                   groups: [
                     ...state.groups,
-                    { id: crypto.randomUUID(), name: groupName.trim() },
+                    { id: recordId(), name: groupName.trim() },
                   ],
                 };
                 validateNetwork(next);
@@ -595,7 +596,7 @@ export function DevicesPanel() {
             onClick={() => {
               r.setError('');
               setRule({
-                id: crypto.randomUUID(),
+                id: recordId(),
                 domain: '',
                 action: 'block',
                 target: { type: 'all', id: '' },
@@ -783,7 +784,7 @@ export function SchedulesPanel() {
   function create() {
     r.setError('');
     setEdit({
-      id: crypto.randomUUID(),
+      id: recordId(),
       name: 'Social media hours',
       domains: [],
       target: { type: 'group', id: state.groups[0].id },

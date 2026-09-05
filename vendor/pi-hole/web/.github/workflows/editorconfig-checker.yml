@@ -1,0 +1,17 @@
+name: editorconfig-checker
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build:
+    name: editorconfig-checker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
+        with:
+          persist-credentials: false
+      - uses: editorconfig-checker/action-editorconfig-checker@840e866d93b8e032123c23bac69dece044d4d84c #v2.2.0
+      - run: editorconfig-checker

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useState } from 'react';
+import { recordId } from '@/lib/record-id';
 import {
   UsersRound,
   ShieldCheck,
@@ -341,7 +342,7 @@ export function ParentalControls({
                   (g) => g.expiresAt > timestamp && g.domain !== normalized,
                 ),
                 {
-                  id: crypto.randomUUID(),
+                  id: recordId(),
                   domain: normalized,
                   startsAt: timestamp,
                   expiresAt: timestamp + duration * 60000,
@@ -1102,7 +1103,7 @@ export function ParentalControls({
                   setRequests((old) =>
                     [
                       {
-                        id: crypto.randomUUID(),
+                        id: recordId(),
                         profileId: result.profileId,
                         domain: result.domain,
                         category: result.category,
@@ -1139,7 +1140,7 @@ export function ParentalControls({
                 if (!newName.trim() || newName.trim().length > 60)
                   throw new Error('Enter a profile name of 1–60 characters.');
                 const p = createProfile(
-                  crypto.randomUUID(),
+                  recordId(),
                   newName.trim(),
                   newPreset,
                 );

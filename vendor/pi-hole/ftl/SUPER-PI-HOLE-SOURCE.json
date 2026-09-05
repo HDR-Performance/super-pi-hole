@@ -1,0 +1,9 @@
+{
+  "name": "ftl",
+  "repository": "https://github.com/pi-hole/FTL.git",
+  "tag": "v6.6",
+  "commit": "71b6fc62571075740a3c721d5e961db9c3609376",
+  "importedFiles": 457,
+  "license": "See original LICENSE in this directory",
+  "modified": false
+}

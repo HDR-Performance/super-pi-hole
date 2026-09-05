@@ -1,0 +1,9 @@
+{
+  "name": "docker",
+  "repository": "https://github.com/pi-hole/docker-pi-hole.git",
+  "tag": "2026.04.0",
+  "commit": "efe4c7fc1fcc0cc82ca7660d0d85f7803c79bdc5",
+  "importedFiles": 38,
+  "license": "See original LICENSE in this directory",
+  "modified": false
+}

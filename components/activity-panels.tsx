@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { recordId } from '@/lib/record-id';
 import {
   Bell,
   FlaskConical,
@@ -96,7 +97,7 @@ export function EventTable({ rows }: { rows: ReviewEvent[] }) {
                       onClick={() => {
                         r.setError('');
                         setRule({
-                          id: crypto.randomUUID(),
+                          id: recordId(),
                           domain: e.scenario.domain,
                           action,
                           target: { type: 'device', id: e.scenario.deviceId },

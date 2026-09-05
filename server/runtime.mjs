@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createReviewStore, createReviewMiddleware } from './review-service.mjs';
+import { createStockInterface } from './stock-interface.mjs';
 import { createPiholeClient, createLiveMiddleware, fail, json, readJson } from './pihole-service.mjs';
 
 const derive = promisify(scrypt);
@@ -21,7 +22,9 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
   let globalAttempts = { start: clock(), count: 0 };
   const store = createReviewStore(dataPath);
   const review = createReviewMiddleware(store, { authorize: () => true });
-  const live = createLiveMiddleware(createPiholeClient(pihole));
+  const client = createPiholeClient(pihole);
+  const live = createLiveMiddleware(client);
+  const stock = createStockInterface(client, { enabled: pihole.controlled, url: pihole.url, fetchImpl: pihole.fetchImpl });
   const cookieName = 'sph_session', sessionLife = 8 * 60 * 60 * 1000;
   const cookie = (token, maxAge) => `${cookieName}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${origin.protocol === 'https:' ? '; Secure' : ''}`;
   function tokenFor(req) {
@@ -36,7 +39,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try {
       const path = new URL(req.url, origin).pathname;
-      if (path === '/healthz' && req.method === 'GET') return json(res, 200, { ok: true, service: 'Super Pi Hole', version: '0.2.0-test' });
+      if (path === '/healthz' && req.method === 'GET') return json(res, 200, { ok: true, service: 'Super Pi Hole', version: '0.3.0-test' });
       if (req.headers.host !== origin.host || req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== origin.origin)) throw fail(403, 'Use the configured Super Pi Hole address. Cross-origin requests are blocked.');
       if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== origin.origin) throw fail(403, 'A same-origin request is required.');
       for (const [key, expires] of sessions) if (expires <= clock()) sessions.delete(key);
@@ -64,6 +67,10 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
       if (path === '/session-api/logout' && req.method === 'POST') {
         sessions.delete(token); res.setHeader('Set-Cookie', cookie('', 0));
         return json(res, 200, { authenticated: false });
+      }
+      if (path.startsWith('/admin/') || path.startsWith('/api/')) {
+        if (!authenticated) throw fail(401, 'Sign in to Super Pi Hole first, then reopen the original interface.');
+        return await stock(req, res);
       }
       if (path.startsWith('/review-api/') || path.startsWith('/live-api/')) {
         if (!authenticated) throw fail(401, 'Sign in to access network information.');
@@ -102,11 +109,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     publicOrigin: env.PUBLIC_ORIGIN ?? '', password: secret(env, 'SUPER_PIHOLE_PASSWORD'),
     dataPath: resolve(env.DATA_DIR ?? '.local/server-test', 'review.sqlite'),
     staticDir: resolve(env.STATIC_DIR ?? 'standalone-dist'),
-    pihole: { url: env.PIHOLE_URL, password: secret(env, 'PIHOLE_PASSWORD'), writeEnabled: env.PIHOLE_WRITE_ENABLED === 'true' },
+    pihole: { url: env.PIHOLE_URL, password: secret(env, 'PIHOLE_PASSWORD'), writeEnabled: env.PIHOLE_WRITE_ENABLED === 'true', controlled: env.SUPER_PIHOLE_INTEGRATED === 'true' },
   });
   const port = Number(env.PORT ?? 8080);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid PORT.');
-  server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Super Pi Hole 0.2.0-test listening on port ${port}; live writes ${env.PIHOLE_WRITE_ENABLED === 'true' ? 'unlocked' : 'locked'}.`));
+  server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Super Pi Hole 0.3.0-test listening on port ${port}; live writes ${env.PIHOLE_WRITE_ENABLED === 'true' ? 'unlocked' : 'locked'}.`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 10000).unref();

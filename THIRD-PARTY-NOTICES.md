@@ -1,9 +1,16 @@
 # Third-party notices
 
-Super Pi Hole is an independent companion to Pi-hole. This repository does not
-vendor or redistribute Pi-hole core, FTL, its web interface, or a GeoIP database.
-The original project's licenses and trademarks remain its own. Inspect upstream
-licenses before bundling any of those components in a derivative distribution.
+Super Pi Hole is an independent distribution, not an official Pi-hole product.
+The integrated release vendors unmodified Pi-hole core v6.4.1, FTL v6.6, web
+v6.5 and Docker packaging 2026.04.0 in `vendor/pi-hole/`. Exact Git commits,
+original file hashes and provenance are recorded beside each source tree and in
+`config/upstream-lock.json`. Their EUPL-1.2 licenses, copyright notices and
+embedded dependency licenses (including dnsmasq's GPL terms) remain in place.
+Our MIT license does not replace these licenses. The complete vendored sources
+also ship in the container at `/app/upstream-source`. Packaging changes live
+separately under `deploy/`; no upstream source file is patched by our build.
+Pi-hole's name and trademarks remain their owners'. No GeoIP database, family
+query history, customer configuration, or downloaded blocklist data is bundled.
 
 - Pi-hole: https://github.com/pi-hole/pi-hole
 - Pi-hole FTL API documentation: https://docs.pi-hole.net/api/

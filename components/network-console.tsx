@@ -82,6 +82,7 @@ function Console() {
                   onClick={() => {
                     setSection(label);
                     setOpenMobile(false);
+                    window.scrollTo({ top: 0, behavior: 'instant' });
                   }}
                 >
                   <Icon />

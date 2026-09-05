@@ -20,7 +20,7 @@ FROM node:24-bookworm-slim AS runtime
 LABEL org.opencontainers.image.title="Super Pi Hole" \
       org.opencontainers.image.description="Experimental Pi-hole v6 companion; custom policies remain simulations" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.version="0.2.0-test" \
+      org.opencontainers.image.version="0.2.1-test" \
       org.opencontainers.image.source="https://github.com/HDR-Performance/super-pi-hole"
 WORKDIR /app
 COPY --from=build /src/standalone-dist ./standalone-dist
@@ -28,6 +28,7 @@ COPY --from=build /src/server ./server
 COPY --from=build /src/lib ./lib
 COPY --from=build /src/config ./config
 COPY --from=build /src/deploy/healthcheck.mjs ./deploy/healthcheck.mjs
+COPY --from=build /src/deploy/init-data.mjs ./deploy/init-data.mjs
 COPY --from=build /src/third-party-licenses ./third-party-licenses
 COPY --from=build /src/vendor-notices ./vendor-notices
 COPY --from=build /src/LICENSE /src/THIRD-PARTY-NOTICES.md ./

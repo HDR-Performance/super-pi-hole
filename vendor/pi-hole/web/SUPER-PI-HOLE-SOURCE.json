@@ -1,0 +1,9 @@
+{
+  "name": "web",
+  "repository": "https://github.com/pi-hole/web.git",
+  "tag": "v6.5",
+  "commit": "7a17e01c28eeb7af2c43384eccf5d859e3061371",
+  "importedFiles": 182,
+  "license": "See original LICENSE in this directory",
+  "modified": false
+}

@@ -31,6 +31,7 @@ type Status = {
   configured: boolean;
   writeEnabled: boolean;
   adminUrl: string | null;
+  controlled?: boolean;
 };
 type Query = {
   id: number;
@@ -846,7 +847,7 @@ export function LivePihole() {
     [tab, setTab] = useState('overview'),
     [queryFocus, setQueryFocus] = useState<QueryFocus>({}),
     [seed, setSeed] = useState({ domain: '', type: 'deny' }),
-    [refresh, setRefresh] = useState('manual');
+    [refresh, setRefresh] = useState('5');
   const { data: status, error } = useData<Status>('status', revision);
   const [pending, setPending] = useState<Pending | null>(null),
     [busy, setBusy] = useState(false),
@@ -922,8 +923,7 @@ export function LivePihole() {
                   Open original Pi-hole administration{' '}
                   <ExternalLink size={16} />
                 </a>{' '}
-                — DHCP, CNAMEs, DNSSEC, Teleporter backups, gravity updates, and
-                diagnostics remain available there.
+                {status.controlled ? '— read-only viewer; Super Pi Hole owns live changes.' : '— original settings and diagnostics.'}
               </p>
             )}
             {!status.configured ? (
@@ -976,6 +976,7 @@ export function LivePihole() {
                         onChange={setRefresh}
                         options={[
                           { value: 'manual', label: 'Manual' },
+                          { value: '5', label: 'Every 5 seconds' },
                           { value: '30', label: 'Every 30 seconds' },
                           { value: '60', label: 'Every minute' },
                         ]}

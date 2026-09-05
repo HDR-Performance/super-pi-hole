@@ -1,0 +1,14 @@
+CORE_VERSION=v6.4.1
+CORE_BRANCH=super-pi-hole-pinned
+CORE_HASH=d3bbfea9
+GITHUB_CORE_VERSION=v6.4.1
+WEB_VERSION=v6.5
+WEB_BRANCH=super-pi-hole-pinned
+WEB_HASH=7a17e01c
+GITHUB_WEB_VERSION=v6.5
+FTL_VERSION=v6.6
+FTL_BRANCH=super-pi-hole-pinned
+FTL_HASH=71b6fc62
+GITHUB_FTL_VERSION=v6.6
+DOCKER_VERSION=super-pi-hole-0.3.0-test
+GITHUB_DOCKER_VERSION=super-pi-hole-0.3.0-test

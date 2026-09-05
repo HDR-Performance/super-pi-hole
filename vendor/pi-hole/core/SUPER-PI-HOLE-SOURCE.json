@@ -1,0 +1,9 @@
+{
+  "name": "core",
+  "repository": "https://github.com/pi-hole/pi-hole.git",
+  "tag": "v6.4.1",
+  "commit": "d3bbfea9c00523723dfee788280b69770bbcd8bd",
+  "importedFiles": 104,
+  "license": "See original LICENSE in this directory",
+  "modified": false
+}

@@ -1,9 +1,11 @@
-# TEST RELEASE. Upload/extract the runtime bundle before applying this YAML.
-# Replace POOL/path, 192.0.2.10, and passwords. 192.0.2.10 is an example, not your NAS.
-# This is an ADDITIONAL app. Do not replace your working Pi-hole YAML or volumes.
+# Direct container install: no application upload, extraction, or build steps.
+# Create a NEW app named super-pi-hole. Do not edit the existing pihole app.
+# Replace /mnt/POOL/APPS/Super-Pi-Hole with your existing dedicated dataset.
+# Replace 192.0.2.10 with your NAS LAN IP, and set a separate admin password.
+# Only the new dataset's data subdirectory is initialized; never use Pi-hole data.
 services:
   init-data:
-    image: node:24-bookworm-slim
+    image: ghcr.io/hdr-performance/super-pi-hole:0.2.1-test
     user: '0:0'
     restart: 'no'
     network_mode: none
@@ -14,19 +16,15 @@ services:
     command: [node, /app/deploy/init-data.mjs]
     volumes:
       - type: bind
-        source: /mnt/POOL/apps/super-pi-hole-0.2.0-test
-        target: /app
-        read_only: true
+        source: /mnt/POOL/APPS/Super-Pi-Hole/data
+        target: /data
         bind:
-          create_host_path: false
-      - super-pi-hole-data:/data
+          create_host_path: true
   super-pi-hole:
-    image: node:24-bookworm-slim
+    image: ghcr.io/hdr-performance/super-pi-hole:0.2.1-test
     user: '568:568'
     restart: unless-stopped
     init: true
-    working_dir: /app
-    command: [node, server/runtime.mjs]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -36,10 +34,6 @@ services:
     ports:
       - '192.0.2.10:20721:8080'
     environment:
-      HOST: 0.0.0.0
-      PORT: '8080'
-      DATA_DIR: /data
-      STATIC_DIR: /app/standalone-dist
       PUBLIC_ORIGIN: 'http://192.0.2.10:20721'
       SUPER_PIHOLE_PASSWORD: 'CHANGE_ME_TO_A_UNIQUE_16_CHARACTER_PASSWORD'
       PIHOLE_URL: 'http://192.0.2.10:20720'
@@ -48,12 +42,10 @@ services:
       TZ: Etc/UTC
     volumes:
       - type: bind
-        source: /mnt/POOL/apps/super-pi-hole-0.2.0-test
-        target: /app
-        read_only: true
+        source: /mnt/POOL/APPS/Super-Pi-Hole/data
+        target: /data
         bind:
-          create_host_path: false
-      - super-pi-hole-data:/data
+          create_host_path: true
     tmpfs:
       - /tmp:size=64m,mode=1777
     pids_limit: 128
@@ -65,5 +57,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-volumes:
-  super-pi-hole-data: {}
+x-portals:
+  - host: 192.0.2.10
+    name: Web UI
+    path: /
+    port: 20721
+    scheme: http

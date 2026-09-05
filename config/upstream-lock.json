@@ -1,0 +1,10 @@
+{
+  "baselineImage": "pihole/pihole:2026.04.0",
+  "updatePolicy": "Maintainer-reviewed source updates only; never fetch upstream application code at container startup",
+  "sources": [
+    { "name": "core", "repository": "https://github.com/pi-hole/pi-hole.git", "tag": "v6.4.1", "commit": "d3bbfea9c00523723dfee788280b69770bbcd8bd" },
+    { "name": "ftl", "repository": "https://github.com/pi-hole/FTL.git", "tag": "v6.6", "commit": "71b6fc62571075740a3c721d5e961db9c3609376" },
+    { "name": "web", "repository": "https://github.com/pi-hole/web.git", "tag": "v6.5", "commit": "7a17e01c28eeb7af2c43384eccf5d859e3061371" },
+    { "name": "docker", "repository": "https://github.com/pi-hole/docker-pi-hole.git", "tag": "2026.04.0", "commit": "efe4c7fc1fcc0cc82ca7660d0d85f7803c79bdc5" }
+  ]
+}
