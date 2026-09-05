@@ -19,6 +19,24 @@
 .sph-live .section-head { margin-bottom: 0; }
 .sph-live .pc-feedback:empty { display: none; }
 .sph-live .sph-actions > .nc-field { flex: 0 1 240px; }
+.sph-live .sph-blocking { border-inline-start: 4px solid var(--primary); }
+.sph-live .sph-blocking-off { border-inline-start-color: #dfa54a; }
+.sph-blocking .section-head { flex-wrap: wrap; gap: 12px; }
+.sph-blocking h2 { display: flex; align-items: center; gap: 10px; }
+.sph-blocking-status { font-variant-numeric: tabular-nums; }
+.sph-blocking .nc-muted, .sph-blocking .nc-field { font-size: .875rem; }
+.sph-setting-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.sph-setting { display: grid; align-content: start; gap: 10px; border: 1px solid var(--border); border-radius: 12px; padding: 18px; min-width: 0; }
+.sph-setting small { font-size: .875rem; color: var(--muted-foreground); }
+.sph-setting details p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.sph-setting select { padding: 10px; width: 100%; background: var(--background); border: 1px solid var(--border); border-radius: 8px; }
+.sph-diagnostics { display: grid; gap: 16px; }
+.sph-check { display: flex; gap: 10px; align-items: center; }
+.sph-log-view { max-height: 360px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .875rem; padding: 16px; background: var(--background); }
+.sph-values > div { padding: 10px; display: grid; grid-template-columns: minmax(120px, 1fr) 2fr; border-bottom: 1px solid var(--border); gap: 12px; }
+.sph-values dd { overflow-wrap: anywhere; min-width: 0; }
+.sph-scroll-table { overflow: auto; }
+.sph-scroll-table td, .sph-scroll-table th { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); }
 .sph-live td { max-width: 450px; white-space: normal; overflow-wrap: anywhere; }
 .sph-live .sph-tabs { flex-wrap: wrap; height: auto; width: 100%; gap: 4px; justify-content: flex-start; }
 .sph-tabs [data-slot='tabs-trigger'] { min-height: 42px; padding: 8px 12px; }
@@ -1264,3 +1282,13 @@ h3 {
     width: 100%;
   }
 }
+/* Pi-hole parity controls keep long lists and detailed reviews contained. */
+.sph-inventory-table { max-height: 360px; overflow: auto; }
+.sph-filter-manager td, .sph-values dd { overflow-wrap: anywhere; }
+.sph-filter-manager form { display: grid; gap: 14px; margin-top: 16px; }
+.sph-filter-manager form > .sph-actions { margin-top: 8px; }
+.sph-query-advanced { flex-basis: 100%; }
+.sph-query-advanced summary { cursor: pointer; padding: 10px 0; }
+.sph-change-review { max-height: 45vh; overflow: auto; }
+.sph-change-review table { width: 100%; border-collapse: collapse; }
+.sph-change-review td, .sph-change-review th { text-align: left; padding: 10px; border-bottom: 1px solid #30475d; overflow-wrap: anywhere; }

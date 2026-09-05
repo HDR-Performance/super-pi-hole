@@ -1,7 +1,7 @@
 import { fail, json } from './pihole-service.mjs';
 
 // Only invoked after Super Pi Hole authentication and origin checks.
-export function createStockInterface(client, { enabled = false, url, fetchImpl = fetch } = {}) {
+export function createStockInterface(client, { enabled = false, url } = {}) {
   if (enabled && !['127.0.0.1', '[::1]'].includes(new URL(url).hostname)) throw Error('Controlled stock interface requires a loopback engine URL.');
   return async (req, res) => {
     if (!enabled) throw fail(404, 'The controlled stock interface is available in integrated mode.');
@@ -15,7 +15,7 @@ export function createStockInterface(client, { enabled = false, url, fetchImpl =
       return json(res, 200, await client.stockRead(path.pathname.slice(5) + path.search));
     }
     if (!['GET', 'HEAD'].includes(req.method) || !path.pathname.startsWith('/admin/')) throw fail(403, 'The original interface is read-only.');
-    const upstream = await fetchImpl(new URL(path.pathname + path.search, url), { redirect: 'manual', signal: AbortSignal.timeout(8000) });
+    const upstream = await client.stockPage(path.pathname + path.search);
     if (upstream.status >= 300 && upstream.status < 400) {
       const location = new URL(upstream.headers.get('location') ?? '/admin/', url);
       if (location.origin !== new URL(url).origin || !location.pathname.startsWith('/admin/')) throw fail(502, 'Unexpected engine redirect.');
@@ -29,6 +29,12 @@ export function createStockInterface(client, { enabled = false, url, fetchImpl =
     let size = 0;
     const chunks = [];
     for await (const chunk of upstream.body ?? []) { size += chunk.length; if (size > 16000000) throw fail(502, 'Stock asset exceeded the size limit.'); chunks.push(Buffer.from(chunk)); }
-    res.end(req.method === 'HEAD' ? undefined : Buffer.concat(chunks));
+    let content = Buffer.concat(chunks);
+    if (upstream.headers.get('content-type')?.includes('text/html')) {
+      // Stock templates expose a CSRF meta tag. The browser only needs our
+      // read-only marker, never the real engine's authentication material.
+      content = Buffer.from(content.toString('utf8').replace(/(<meta\s+name="csrf-token"\s+content=")[^"]*("\s*\/?>)/gi, '$1super-pi-hole-read-only$2'));
+    }
+    res.end(req.method === 'HEAD' ? undefined : content);
   };
 }

@@ -4,7 +4,7 @@ image=${1:-super-pi-hole:ci}
 docker volume create sph-ci-engine >/dev/null
 docker run --rm -i --user 0:0 -v sph-ci-engine:/etc/pihole "$image" bash -es <<'SEED'
   pihole-FTL --config dns.upstreams "[\"1.1.1.1\"]" >/dev/null
-  pihole-FTL --config dns.hosts "[\"192.0.2.42 allowed.test\"]" >/dev/null
+  pihole-FTL --config dns.hosts "[\"192.0.2.42 allowed.test\",\"192.0.2.43 family.test\",\"2001:db8::43 family.test\",\"192.0.2.44 www.youtube.com\"]" >/dev/null
   pihole-FTL --config dns.listeningMode ALL >/dev/null
   pihole-FTL --config webserver.api.password "" >/dev/null
   pihole-FTL --config ntp.ipv4.active false >/dev/null
@@ -56,6 +56,7 @@ curl --fail-with-body -s -b "$cookie" -H 'Origin: http://127.0.0.1:20721' -H 'Co
   -d '{"action":"client-assign","client":"192.0.2.99","groups":[1],"expected":null,"confirmed":true}' http://127.0.0.1:20721/live-api/action | jq -e '.verified.clients[0].groups == [1]'
 curl --fail-with-body -s -b "$cookie" http://127.0.0.1:20721/live-api/teleporter -o /tmp/sph-teleporter.zip
 unzip -t /tmp/sph-teleporter.zip
+node deploy/smoke-family.mjs
 docker restart sph-ci-dns >/dev/null
 for i in $(seq 1 30); do
   if docker exec sph-ci-dns dig +short +time=1 +tries=1 @127.0.0.1 blocked.test | grep -q '^0.0.0.0$'; then break; fi

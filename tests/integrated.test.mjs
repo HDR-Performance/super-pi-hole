@@ -21,6 +21,29 @@ test('migration copies and verifies original data without altering it', () => {
   assert.equal(readFileSync(join(config, 'pihole.toml'), 'utf8'), original);
   assert.equal(JSON.parse(readFileSync(join(result.target, 'manifest.json'))).files.length, 3);
 });
+test('upgrade backup includes existing controller database and WAL files', () => {
+  const root = mkdtempSync(join(tmpdir(), 'sph-full-backup-'));
+  const config = join(root, 'config'), dnsmasq = join(root, 'dnsmasq'), appData = join(root, 'data');
+  for (const dir of [config, dnsmasq, appData]) mkdirSync(dir);
+  writeFileSync(join(config, 'pihole.toml'), '[dns]');
+  writeFileSync(join(config, 'gravity.db'), 'original rules');
+  for (const file of ['review.sqlite', 'review.sqlite-wal', 'review.sqlite.family.sqlite']) writeFileSync(join(appData, file), 'existing ' + file);
+  const result = backupUpgrade({ config, dnsmasq, appData, destination: join(root, 'backups') });
+  assert.equal(result.files, 5);
+  for (const file of ['review.sqlite', 'review.sqlite-wal', 'review.sqlite.family.sqlite']) assert.equal(readFileSync(join(result.target, 'super-pi-hole-data', file), 'utf8'), 'existing ' + file);
+  assert.throws(() => backupUpgrade({ config, dnsmasq, appData, destination: join(appData, 'backups') }), /outside/);
+});
+test('existing-app template retains the deployed external data volume and main UI portal', () => {
+  const config = load(readFileSync(new URL('../deploy/truenas-existing-app.yaml', import.meta.url), 'utf8'));
+  assert.equal(config.volumes['super-pi-hole-data'].external, true);
+  assert.equal(config.volumes['super-pi-hole-data'].name, 'ix-super-pi-hole_super-pi-hole-data');
+  assert.equal(config.services.backup.environment.EXISTING_SUPER_DATA_REQUIRED, 'true');
+  assert.equal(config.services['super-pi-hole'].environment.SUPER_PIHOLE_PASSWORD, config.services.backup.environment.SUPER_PIHOLE_PASSWORD);
+  assert.deepEqual(config.services['super-pi-hole'].volumes, ['super-pi-hole-data:/data']);
+  assert.equal(config['x-portals'][0].path, '/');
+  assert.equal(config['x-portals'][0].port, 20721);
+  for (const service of Object.values(config.services)) assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:0.4.0-test');
+});
 test('stock interface cannot write to the engine or point to a remote host', async () => {
   let forwarded = 0;
   const stock = createStockInterface({ stockRead: async () => { forwarded++; return {}; } }, { enabled: true, url: 'http://127.0.0.1:20720' });
@@ -31,7 +54,7 @@ test('stock interface cannot write to the engine or point to a remote host', asy
 test('integrated YAML pins our image, backs up read-only, and preserves both original mounts', () => {
   const config = load(readFileSync(new URL('../deploy/truenas-upgrade.yaml', import.meta.url), 'utf8'));
   for (const service of Object.values(config.services)) {
-    assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:0.3.0-test');
+    assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:0.4.0-test');
     assert.equal(service.network_mode, 'host');
     assert.equal(service.build, undefined);
   }

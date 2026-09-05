@@ -13,14 +13,15 @@ COPY tests ./tests
 COPY deploy ./deploy
 COPY tools ./tools
 COPY vendor-notices ./vendor-notices
+COPY vendor/pi-hole/ftl/src/api/docs/content/specs ./vendor/pi-hole/ftl/src/api/docs/content/specs
 COPY vite.standalone.config.ts tsconfig.json LICENSE THIRD-PARTY-NOTICES.md ./
 RUN npm test && npm run build:server && node deploy/licenses.mjs third-party-licenses
 
 FROM node:24-bookworm-slim AS runtime
 LABEL org.opencontainers.image.title="Super Pi Hole" \
-      org.opencontainers.image.description="Experimental Pi-hole v6 companion; custom policies remain simulations" \
+      org.opencontainers.image.description="Experimental Pi-hole v6 controller with opt-in live family DNS policies" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.version="0.3.0-test" \
+      org.opencontainers.image.version="0.4.0-test" \
       org.opencontainers.image.source="https://github.com/HDR-Performance/super-pi-hole"
 WORKDIR /app
 COPY --from=build /src/standalone-dist ./standalone-dist

@@ -84,6 +84,14 @@ test('proposed presets reference valid unique sources and one base family', () =
   for (const source of config.sources)
     assert.equal(inspectListUrl(source.url).accepted, true);
 });
+test('Balanced allows social platforms by default and keeps threat protection separate from optional restrictions', () => {
+  const config = JSON.parse(readFileSync(new URL('../config/blocklist-presets.json', import.meta.url), 'utf8'));
+  const baseline = config.presets.find(p => p.id === config.defaultPreset);
+  assert.deepEqual(baseline.sources, ['hagezi-normal', 'hagezi-tif-medium']);
+  for (const source of config.sources.filter(s => ['social', 'adult-content', 'gambling', 'windows-telemetry', 'lg-telemetry'].includes(s.exclusiveFamily))) assert.ok(!baseline.sources.includes(source.id));
+  assert.match(baseline.note, /YouTube and social media available/);
+  assert.match(baseline.note, /No list catches every threat/);
+});
 test('Windows and LG privacy packs are opt-in and never part of the default preset', () => {
   const config = JSON.parse(readFileSync(new URL('../config/blocklist-presets.json', import.meta.url), 'utf8'));
   const baseline = config.presets.find(p => p.id === config.defaultPreset);

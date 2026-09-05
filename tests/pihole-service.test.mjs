@@ -84,9 +84,27 @@ test('timed control is delegated to Pi-hole and validated', async () => {
   });
   assert.deepEqual(f.calls[0].body, { blocking: false, timer: 300 });
   await assert.rejects(
-    c.act({ action: 'blocking', blocking: false, timer: 1, confirmed: true }),
+    c.act({ action: 'blocking', blocking: false, timer: 0, confirmed: true }),
     { status: 400 },
   );
+});
+
+test('short, custom, indefinite and resume controls preserve engine timer semantics', async () => {
+  const f = fixtureFetch({ clock: () => 10000 }), c = createPiholeClient({ url, fetchImpl: f.request, writeEnabled: true });
+  for (const timer of [1, 10, 30, 450, 86400, null]) {
+    await c.act({ action: 'blocking', blocking: false, timer, confirmed: true });
+    assert.deepEqual(f.calls.at(-1).body, { blocking: false, timer });
+    const state = (await c.read('overview')).data.blocking;
+    assert.equal(state.blocking, 'disabled');
+    assert.equal(state.timer, timer);
+  }
+  await c.act({ action: 'blocking', blocking: true, timer: null, confirmed: true });
+  assert.deepEqual((await c.read('overview')).data.blocking, { blocking: 'enabled', timer: null });
+  const before = f.calls.length;
+  for (const timer of [undefined, -1, 0, 0.5, 86401, '300', '', false, {}, Infinity, NaN]) {
+    await assert.rejects(c.act({ action: 'blocking', blocking: false, timer, confirmed: true }), { status: 400 });
+  }
+  assert.equal(f.calls.length, before, 'invalid timers never reach the engine');
 });
 test('domain rules preserve explicit group scope and delete exact encoded targets', async () => {
   const f = fixtureFetch(),

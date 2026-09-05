@@ -38,8 +38,10 @@ export function SessionGate({ children }: { children: ReactNode }) {
   }
   if (session?.authenticated) return <SessionContext.Provider value={{ mode: session.mode, synthetic: session.synthetic, logout }}>{error && <p role="alert" className="pc-error">{error}</p>}{children}</SessionContext.Provider>;
   return <main className="sph-login"><section className="panel sph-login-card">
-    <Shield size={36} /><p className="eyebrow">SUPER PI HOLE</p><h1>Network administrator</h1>
-    <p>Sign in to view live DNS activity and manage your Pi-hole.</p>
+    <Shield size={36} /><p className="eyebrow">SUPER PI HOLE</p><h1>{session?.synthetic === true ? 'Local simulated preview' : 'Network administrator'}</h1>
+    {session?.synthetic === true
+      ? <p>This preview uses fabricated devices and DNS data. It cannot change your home network. Do not enter your TrueNAS or real Super Pi Hole password. Test-only password: <code>local-fixture-only-password</code></p>
+      : <p>Sign in to view live DNS activity and manage your Pi-hole.</p>}
     {session?.insecureTransport && <p className="pc-error">LAN test over HTTP: sign-in and traffic data are not encrypted. Use HTTPS for ongoing use. Never port-forward this interface.</p>}
     {error && <p className="pc-error" role="alert">{error}</p>}
     {!session ? <Button onClick={check}>Retry connection</Button> : <form onSubmit={async event => {
@@ -52,10 +54,10 @@ export function SessionGate({ children }: { children: ReactNode }) {
       } catch (e) { setError(e instanceof Error ? e.message : 'Sign-in failed.'); }
       finally { setBusy(false); }
     }}>
-      <label htmlFor="sph-password">Administrator password</label>
-      <Input id="sph-password" type="password" autoComplete="current-password" maxLength={256} required value={password} onChange={e => setPassword(e.target.value)} />
+      <label htmlFor="sph-password">{session?.synthetic === true ? 'Test-only password' : 'Administrator password'}</label>
+      <Input id="sph-password" type="password" autoComplete={session?.synthetic === true ? 'off' : 'current-password'} maxLength={256} required value={password} onChange={e => setPassword(e.target.value)} />
       <Button type="submit" disabled={busy}><LockKeyhole />{busy ? 'Signing in…' : 'Sign in'}</Button>
     </form>}
-    <small>The password is set in your server configuration. It is separate from your Pi-hole password.</small>
+    <small>{session?.synthetic === true ? 'These test credentials are not used by your installed app.' : 'The password is set in your server configuration. It is separate from your Pi-hole password.'}</small>
   </section></main>;
 }
