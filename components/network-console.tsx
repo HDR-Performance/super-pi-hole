@@ -46,6 +46,8 @@ import {
 } from './activity-panels';
 import catalog from '@/config/blocklist-presets.json';
 import { LivePihole } from './live-pihole';
+import { LiveDevices } from './live-devices';
+import { EngineSettings } from './engine-settings';
 import { useSession } from './session-gate';
 const navigation = [
   ['Live Pi-hole', Radio],
@@ -95,7 +97,7 @@ function Console() {
             ))}
           </SidebarMenu>
           <div className="nc-sidebar-note">
-            <span className="nc-status-dot" /> {session.mode === 'server-test' ? 'Server test · 0.2.0' : 'Local review build'}
+            <span className="nc-status-dot" /> {session.mode === 'server-test' ? 'Server test · 0.3.0' : 'Local review build'}
             <small>Live DNS and policy review are separate</small>
           </div>
         </SidebarContent>
@@ -104,7 +106,7 @@ function Console() {
         <header className="topbar">
           <SidebarTrigger />
           <span className="nc-top-title">Home network</span>
-          <span className="badge amber">{section === 'Live Pi-hole' ? 'Pi-hole API' : 'Policy simulator'}</span>
+          <span className="badge amber">{['Live Pi-hole', 'Devices', 'Advanced Pi-hole'].includes(section) ? 'Live DNS' : 'Policy simulator'}</span>
           {session.mode === 'server-test' && <Button variant="ghost" aria-label="Sign out" onClick={session.logout}><LogOut /></Button>}
           <Button
             variant="ghost"
@@ -124,7 +126,7 @@ function Console() {
         </header>
         <main className="workspace nc-workspace">
           {session.synthetic && <div className="nc-review-strip"><FlaskConical /><strong>Synthetic test server. All DNS clients, queries, and live-control actions on this page are fabricated test data.</strong></div>}
-          {section !== 'Live Pi-hole' && <div className="nc-review-strip">
+          {!['Live Pi-hole', 'Devices', 'Advanced Pi-hole'].includes(section) && <div className="nc-review-strip">
             <FlaskConical />
             <span>
               Policy review: these custom settings and synthetic tests do not control
@@ -152,7 +154,7 @@ function Console() {
               )}
             </div>
           )}
-          {section === 'Live Pi-hole' ? <LivePihole /> : !r.ready ? (
+          {section === 'Live Pi-hole' ? <LivePihole /> : section === 'Devices' ? <LiveDevices /> : section === 'Advanced Pi-hole' ? <EngineSettings /> : !r.ready ? (
             <section className="panel">
               <h1>Connecting to the local review service</h1>
               <p>

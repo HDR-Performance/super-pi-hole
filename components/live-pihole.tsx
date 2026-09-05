@@ -87,7 +87,7 @@ export type Pending = {
   description: string;
   body: Record<string, unknown>;
 };
-async function liveApi<T>(
+export async function liveApi<T>(
   path: string,
   signal?: AbortSignal,
   body?: unknown,
@@ -112,7 +112,7 @@ async function liveApi<T>(
   if (!response.ok) throw Error(result.error ?? 'Pi-hole request failed.');
   return result as T;
 }
-function useData<T>(path: string, revision: number) {
+export function useData<T>(path: string, revision: number) {
   const [data, setData] = useState<T | null>(null),
     [error, setError] = useState('');
   useEffect(() => {
@@ -357,7 +357,7 @@ function LiveOverview({
     </DataState>
   );
 }
-function QueryLog({
+export function QueryLog({
   revision,
   initial,
   prepareRule,
@@ -462,6 +462,7 @@ function QueryLog({
           ]}
         />
         <Button type="submit">Apply filters</Button>
+        <Button type="button" variant="outline" onClick={() => { setDomain(''); setClient(initial.client_ip ?? ''); setResult('all'); setType(''); setRange({ from: undefined, until: undefined }); setCursor(''); setQuery(new URLSearchParams(initial.client_ip ? { client_ip: initial.client_ip } : {}).toString()); }}>Clear filters</Button>
       </form>
       <DataState error={error} loaded={!!data}>
         {data && (

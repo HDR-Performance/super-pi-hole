@@ -235,6 +235,12 @@ export function createPiholeClient({
       return request(path);
     },
     async read(resource, params = new URLSearchParams()) {
+      if (resource === 'devices') {
+        const [network, clients, groups] = await Promise.all([request('network/devices?max_devices=10000&max_addresses=32'), request('clients'), request('groups')]);
+        if (!Array.isArray(network.devices) || !Array.isArray(clients.clients) || !Array.isArray(groups.groups)) throw fail(502, 'Device inventory is unavailable.');
+        return { devices: network.devices, clients: clients.clients, groups: groups.groups, fetchedAt: new Date().toISOString(), coverage: 'Pi-hole observed devices only; silent, isolated, VPN and encrypted-DNS clients may be missing.', limit: 10000 };
+      }
+      if (resource === 'engine-config') return request('config');
       if (resource === 'overview') {
         const paths = {
           summary: 'stats/summary',
@@ -358,6 +364,71 @@ export function createPiholeClient({
           409,
           'Another Pi-hole change is running. Refresh before retrying.',
         );
+      if (['client-assign', 'group-save', 'group-delete', 'list-save', 'list-delete', 'config-set'].includes(body.action)) {
+        mutating = true;
+        try {
+          const groupIds = (value) => {
+            if (!Array.isArray(value) || !value.length || value.length > 100 || value.some(g => !Number.isInteger(g) || g < 0)) throw fail(400, 'Select at least one valid group.');
+            return [...new Set(value)];
+          };
+          const comment = body.comment === null || body.comment === undefined ? null : text(body.comment, 1024);
+          let path, method, payload, readback;
+          if (body.action === 'client-assign') {
+            const identifier = text(body.client, 253);
+            if (!isIP(identifier) && !/^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(identifier)) throw fail(400, 'Use a device IPv4, IPv6, or MAC address.');
+            const groups = groupIds(body.groups);
+            const known = await request('groups');
+            if (groups.some(id => !known.groups?.some(g => g.id === id))) throw fail(400, 'One of the selected groups no longer exists.');
+            const existing = (await request('clients')).clients?.find(c => c.client.toLowerCase() === identifier.toLowerCase());
+            if (JSON.stringify(existing ?? null) !== JSON.stringify(body.expected ?? null)) throw fail(409, 'Client settings changed. Reload the device before saving.');
+            path = 'clients' + (existing ? '/' + encodeURIComponent(identifier) : '');
+            method = existing ? 'PUT' : 'POST'; payload = { client: identifier, groups, comment: comment ?? existing?.comment ?? null };
+            readback = 'clients/' + encodeURIComponent(identifier);
+          } else if (body.action.startsWith('group-')) {
+            const name = text(body.name, 128), previous = text(body.previous ?? name, 128);
+            const existing = (await request('groups')).groups?.find(g => g.name === previous);
+            if (!body.create && JSON.stringify(existing ?? null) !== JSON.stringify(body.expected ?? null)) throw fail(409, 'Group changed. Reload before saving.');
+            if (body.action === 'group-delete' && existing?.id === 0) throw fail(400, 'The default group cannot be deleted.');
+            if (body.action === 'group-delete' && previous === 'Default') throw fail(400, 'The default group cannot be deleted here.');
+            method = body.action === 'group-delete' ? 'DELETE' : body.create === true ? 'POST' : 'PUT';
+            if (method !== 'DELETE' && typeof body.enabled !== 'boolean') throw fail(400, 'Choose an enabled state.');
+            path = 'groups' + (method === 'POST' ? '' : '/' + encodeURIComponent(previous));
+            payload = method === 'DELETE' ? undefined : { name, enabled: body.enabled, comment }; readback = 'groups';
+          } else if (body.action.startsWith('list-')) {
+            const address = text(body.address, 2048), target = new URL(address);
+            if (target.protocol !== 'https:' || target.username || target.password || target.hash) throw fail(400, 'Use a public HTTPS blocklist URL without credentials.');
+            if (!['allow', 'block'].includes(body.type)) throw fail(400, 'Select an allow or block list.');
+            const existing = (await request('lists')).lists?.find(l => l.address === address && l.type === body.type);
+            if (!body.create && JSON.stringify(existing ?? null) !== JSON.stringify(body.expected ?? null)) throw fail(409, 'Subscription changed. Reload before saving.');
+            method = body.action === 'list-delete' ? 'DELETE' : body.create === true ? 'POST' : 'PUT';
+            path = 'lists' + (method === 'POST' ? '' : '/' + encodeURIComponent(address)) + '?type=' + body.type;
+            if (method !== 'DELETE' && typeof body.enabled !== 'boolean') throw fail(400, 'Choose an enabled state.');
+            payload = method === 'DELETE' ? undefined : { address, type: body.type, enabled: body.enabled, groups: groupIds(body.groups), comment }; readback = 'lists';
+          } else {
+            if (!body.config || typeof body.config !== 'object' || Array.isArray(body.config)) throw fail(400, 'Provide a configuration object.');
+            const sections = Object.keys(body.config);
+            if (!sections.length || sections.some(key => !['dns', 'dhcp', 'ntp', 'resolver', 'database'].includes(key))) throw fail(400, 'Only DNS, DHCP, NTP, resolver and database settings are editable here. Listener, authentication and filesystem settings are managed by the installation.');
+            // Do not silently relocate DNS or bypass the protected API listener.
+            if (body.config.dns?.port !== undefined && body.config.dns.port !== 53) throw fail(400, 'DNS port is managed by the deployment.');
+            const current = await request('config');
+            for (const key of sections) if (JSON.stringify(current.config?.[key]) !== JSON.stringify(body.expected?.[key])) throw fail(409, 'Engine settings changed. Reload before saving.');
+            const diff = (next, old) => {
+              if (!next || typeof next !== 'object' || Array.isArray(next)) return JSON.stringify(next) === JSON.stringify(old) ? undefined : next;
+              const result = {};
+              if (Object.keys(old ?? {}).some(k => !Object.hasOwn(next, k))) throw fail(400, 'Do not remove configuration keys; set their explicit value instead.');
+              for (const [key, value] of Object.entries(next)) { if (['__proto__', 'constructor', 'prototype'].includes(key)) throw fail(400, 'Invalid configuration key.'); const changed = diff(value, old?.[key]); if (changed !== undefined) result[key] = changed; }
+              return Object.keys(result).length ? result : undefined;
+            };
+            const changes = {};
+            for (const key of sections) { const changed = diff(body.config[key], current.config[key]); if (changed !== undefined) changes[key] = changed; }
+            if (!Object.keys(changes).length) return { ok: true, verified: current, message: 'No engine settings changed.' };
+            path = 'config'; method = 'PATCH'; payload = { config: changes }; readback = 'config';
+          }
+          await request(path, method, payload);
+          const verified = await request(readback);
+          return { ok: true, verified, message: 'Engine accepted the change and current settings were read back. Test the affected device to verify its DNS behavior.' };
+        } finally { mutating = false; }
+      }
       let path, method, payload;
       if (body.action === 'blocking') {
         if (
