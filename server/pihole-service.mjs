@@ -1,6 +1,9 @@
 import { isIP } from 'node:net';
 import { domainToASCII } from 'node:url';
 import catalog from '../config/blocklist-presets.json' with { type: 'json' };
+import { isBlockingTimer } from '../lib/blocking-control.mjs';
+import { createEngineFeatures, featureViews, featureActions } from './engine-features.mjs';
+import { syncFamilyEngine } from './family-engine.mjs';
 
 export const fail = (status, message) =>
   Object.assign(new Error(message), { status });
@@ -225,6 +228,7 @@ export function createPiholeClient({
       }
     }
   }
+  const features = createEngineFeatures({ request, fail, hostname });
   const info = () => ({
     configured: !!base,
     writeEnabled: !!base && writeEnabled,
@@ -243,6 +247,26 @@ export function createPiholeClient({
   };
   return {
     info,
+    async syncFamily(plan) {
+      if (!writeEnabled || !base) throw fail(403, 'Live family writes require a connected, write-enabled Pi-hole.');
+      if (mutating || gravity.state === 'running') throw fail(409, 'Another engine operation is running. Review and retry family changes afterward.');
+      mutating = true;
+      try { return await syncFamilyEngine({ request, fail }, plan); } finally { mutating = false; }
+    },
+    async stockPage(path) {
+      if (!controlled || !base || !['127.0.0.1', '[::1]'].includes(base.hostname) || !path.startsWith('/admin/') || /[%\\]|\.\.|\/\//.test(path.split('?')[0])) throw fail(403, 'Unsupported stock page.');
+      const target = new URL(path, base.origin);
+      target.searchParams.delete('sid');
+      if (password && !sid) await login();
+      const fetchPage = () => fetchImpl(target, { redirect: 'manual', headers: sid ? { 'X-FTL-SID': sid } : {}, signal: AbortSignal.timeout(timeoutMs) });
+      let response = await fetchPage();
+      const location = new URL(response.headers.get('location') ?? '/admin/', base.origin);
+      if (password && (response.status === 401 || (response.status >= 300 && response.status < 400 && location.origin === base.origin && location.pathname.startsWith('/admin/login')))) {
+        await response.body?.cancel();
+        sid = ''; await login(); response = await fetchPage();
+      }
+      return response;
+    },
     async exportSettings() {
       if (!base) throw fail(503, 'DNS engine is not connected.');
       if (password && !sid) await login();
@@ -257,6 +281,7 @@ export function createPiholeClient({
       return request(path);
     },
     async read(resource, params = new URLSearchParams()) {
+      if (featureViews.has(resource)) return features.read(resource, params);
       if (resource === 'gravity') return { ...gravity };
       if (resource === 'devices') {
         const [network, clients, groups] = await Promise.all([request('network/devices?max_devices=10000&max_addresses=32'), request('clients'), request('groups')]);
@@ -324,15 +349,21 @@ export function createPiholeClient({
             ![
               'domain',
               'client_ip',
+              'client_name',
+              'status',
+              'reply',
+              'dnssec',
               'upstream',
               'type',
               'cursor',
               'from',
               'until',
+              'disk',
             ].includes(key)
           )
             throw fail(400, 'Unsupported query filter.');
           if (!value) continue;
+          if (key === 'disk' && !['true', 'false'].includes(value)) throw fail(400, 'Invalid query data source.');
           if (key === 'cursor' && !/^\d{1,15}$/.test(value))
             throw fail(400, 'Invalid query cursor.');
           if (
@@ -395,11 +426,15 @@ export function createPiholeClient({
         void runGravity();
         return { ok: true, message: 'Gravity started. Follow its output below; application code is not updated.' };
       }
+      if (featureActions.has(body.action)) {
+        mutating = true;
+        try { return await features.act(body); } finally { mutating = false; }
+      }
       if (['client-assign', 'group-save', 'group-delete', 'list-save', 'list-delete', 'config-set'].includes(body.action)) {
         mutating = true;
         try {
           const groupIds = (value) => {
-            if (!Array.isArray(value) || !value.length || value.length > 100 || value.some(g => !Number.isInteger(g) || g < 0)) throw fail(400, 'Select at least one valid group.');
+            if (!Array.isArray(value) || value.length > 100 || value.some(g => !Number.isInteger(g) || g < 0)) throw fail(400, 'Select valid groups.');
             return [...new Set(value)];
           };
           const comment = body.comment === null || body.comment === undefined ? null : text(body.comment, 1024);
@@ -418,6 +453,7 @@ export function createPiholeClient({
           } else if (body.action.startsWith('group-')) {
             const name = text(body.name, 128), previous = text(body.previous ?? name, 128);
             const existing = (await request('groups')).groups?.find(g => g.name === previous);
+            if (!body.create && !existing) throw fail(409, 'This group no longer exists. Reload before saving.');
             if (!body.create && JSON.stringify(existing ?? null) !== JSON.stringify(body.expected ?? null)) throw fail(409, 'Group changed. Reload before saving.');
             if (body.action === 'group-delete' && existing?.id === 0) throw fail(400, 'The default group cannot be deleted.');
             if (body.action === 'group-delete' && previous === 'Default') throw fail(400, 'The default group cannot be deleted here.');
@@ -430,11 +466,16 @@ export function createPiholeClient({
             if (target.protocol !== 'https:' || target.username || target.password || target.hash) throw fail(400, 'Use a public HTTPS blocklist URL without credentials.');
             if (!['allow', 'block'].includes(body.type)) throw fail(400, 'Select an allow or block list.');
             const existing = (await request('lists')).lists?.find(l => l.address === address && l.type === body.type);
+            if (!body.create && !existing) throw fail(409, 'This subscription no longer exists. Reload before saving.');
             if (!body.create && JSON.stringify(existing ?? null) !== JSON.stringify(body.expected ?? null)) throw fail(409, 'Subscription changed. Reload before saving.');
             method = body.action === 'list-delete' ? 'DELETE' : body.create === true ? 'POST' : 'PUT';
             path = 'lists' + (method === 'POST' ? '' : '/' + encodeURIComponent(address)) + '?type=' + body.type;
             if (method !== 'DELETE' && typeof body.enabled !== 'boolean') throw fail(400, 'Choose an enabled state.');
             payload = method === 'DELETE' ? undefined : { address, type: body.type, enabled: body.enabled, groups: groupIds(body.groups), comment }; readback = 'lists';
+            if (payload) {
+              const known = (await request('groups')).groups;
+              if (!Array.isArray(known) || payload.groups.some(id => !known.some(g => g.id === id))) throw fail(400, 'A selected group no longer exists.');
+            }
           } else {
             if (!body.config || typeof body.config !== 'object' || Array.isArray(body.config)) throw fail(400, 'Provide a configuration object.');
             const sections = Object.keys(body.config);
@@ -453,10 +494,25 @@ export function createPiholeClient({
             const changes = {};
             for (const key of sections) { const changed = diff(body.config[key], current.config[key]); if (changed !== undefined) changes[key] = changed; }
             if (!Object.keys(changes).length) return { ok: true, verified: current, message: 'No engine settings changed.' };
-            path = 'config'; method = 'PATCH'; payload = { config: changes }; readback = 'config';
+            const edits = [];
+            const leaves = (next, old, prefix = '') => {
+              for (const [key, value] of Object.entries(next)) {
+                const path = prefix ? `${prefix}.${key}` : key;
+                if (value && typeof value === 'object' && !Array.isArray(value)) leaves(value, old?.[key], path);
+                else edits.push({ path, value, expected: old?.[key] });
+              }
+            };
+            leaves(changes, current.config);
+            return await features.act({ action: 'settings-save', changes: edits, dhcpAcknowledged: body.dhcpAcknowledged });
           }
           await request(path, method, payload);
           const verified = await request(readback);
+          if (body.action.startsWith('group-') || body.action.startsWith('list-')) {
+            const entries = body.action.startsWith('group-') ? verified.groups : verified.lists;
+            if (!Array.isArray(entries)) throw fail(502, 'Change submitted but verification is unavailable. Reload before retrying.');
+            const found = entries.find(e => body.action.startsWith('group-') ? e.name === (method === 'DELETE' ? body.previous ?? body.name : payload.name) : e.address === body.address && e.type === body.type);
+            if (method === 'DELETE' ? !!found : (!found || found.enabled !== payload.enabled || found.comment !== payload.comment || (payload.groups && JSON.stringify([...found.groups].sort((a, b) => a - b)) !== JSON.stringify([...payload.groups].sort((a, b) => a - b))))) throw fail(502, 'Change submitted but readback differs. Reload before retrying.');
+          }
           if (body.action === 'client-assign') {
             const actual = verified.clients?.find(c => c.client.toLowerCase() === body.client.toLowerCase());
             if (!actual || JSON.stringify([...actual.groups].sort()) !== JSON.stringify([...new Set(body.groups)].sort())) throw fail(502, 'The change was submitted but group readback did not match. Reload before retrying.');
@@ -468,12 +524,9 @@ export function createPiholeClient({
       if (body.action === 'blocking') {
         if (
           typeof body.blocking !== 'boolean' ||
-          (body.timer !== null &&
-            (!Number.isInteger(body.timer) ||
-              body.timer < 60 ||
-              body.timer > 86400))
+          !isBlockingTimer(body.timer)
         )
-          throw fail(400, 'Select a valid blocking state and timer.');
+          throw fail(400, 'Select a valid blocking state and a timer from 1 to 86400 seconds, or null for no timer.');
         path = 'dns/blocking';
         method = 'POST';
         payload = { blocking: body.blocking, timer: body.timer };

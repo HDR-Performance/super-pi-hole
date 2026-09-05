@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createReviewStore, createReviewMiddleware } from './review-service.mjs';
 import { createStockInterface } from './stock-interface.mjs';
+import { createFamilyService } from './family-service.mjs';
 import { createPiholeClient, createLiveMiddleware, fail, json, readJson } from './pihole-service.mjs';
 
 const derive = promisify(scrypt);
@@ -23,6 +24,10 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
   const store = createReviewStore(dataPath);
   const review = createReviewMiddleware(store, { authorize: () => true });
   const client = createPiholeClient(pihole);
+  const family = createFamilyService({ path: dataPath === ':memory:' ? ':memory:' : dataPath + '.family.sqlite', client, clock });
+  const familyTimer = setInterval(() => { void family.tick(); }, 30000);
+  familyTimer.unref();
+  queueMicrotask(() => { void family.tick(); });
   const live = createLiveMiddleware(client);
   const stock = createStockInterface(client, { enabled: pihole.controlled, url: pihole.url, fetchImpl: pihole.fetchImpl });
   const cookieName = 'sph_session', sessionLife = 8 * 60 * 60 * 1000;
@@ -39,7 +44,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try {
       const path = new URL(req.url, origin).pathname;
-      if (path === '/healthz' && req.method === 'GET') return json(res, 200, { ok: true, service: 'Super Pi Hole', version: '0.3.0-test' });
+      if (path === '/healthz' && req.method === 'GET') return json(res, 200, { ok: true, service: 'Super Pi Hole', version: '0.4.0-test' });
       if (req.headers.host !== origin.host || req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== origin.origin)) throw fail(403, 'Use the configured Super Pi Hole address. Cross-origin requests are blocked.');
       if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== origin.origin) throw fail(403, 'A same-origin request is required.');
       for (const [key, expires] of sessions) if (expires <= clock()) sessions.delete(key);
@@ -74,6 +79,15 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
       }
       if (path.startsWith('/review-api/') || path.startsWith('/live-api/')) {
         if (!authenticated) throw fail(401, 'Sign in to access network information.');
+        if (path.startsWith('/live-api/family/')) {
+          if (path === '/live-api/family/state' && req.method === 'GET') return json(res, 200, family.snapshot());
+          if (req.method !== 'POST') throw fail(405, 'Method not allowed.');
+          const body = await readJson(req, 98304);
+          if (path === '/live-api/family/save') return json(res, 200, await family.save(body));
+          if (path === '/live-api/family/retry') return json(res, 200, await family.retry(body));
+          if (path === '/live-api/family/ack') return json(res, 200, family.acknowledge(body.id));
+          throw fail(404, 'Unknown family action.');
+        }
         if (path.startsWith('/review-api/')) return await review(req, res);
         return await live(req, res);
       }
@@ -99,7 +113,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   server.maxHeadersCount = 50;
-  server.once('close', () => { sessions.clear(); store.close(); });
+  server.once('close', () => { clearInterval(familyTimer); sessions.clear(); store.close(); void family.close(); });
   return server;
 }
 
@@ -113,7 +127,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   });
   const port = Number(env.PORT ?? 8080);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid PORT.');
-  server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Super Pi Hole 0.3.0-test listening on port ${port}; live writes ${env.PIHOLE_WRITE_ENABLED === 'true' ? 'unlocked' : 'locked'}.`));
+  server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Super Pi Hole 0.4.0-test listening on port ${port}; live writes ${env.PIHOLE_WRITE_ENABLED === 'true' ? 'unlocked' : 'locked'}.`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 10000).unref();
