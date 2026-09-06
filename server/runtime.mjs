@@ -14,11 +14,12 @@ export function secret(env, name) {
   if (env[name + '_FILE']) return readFileSync(env[name + '_FILE'], 'utf8').trim();
   return env[name] ?? '';
 }
-export function createRuntime({ publicOrigin, password, dataPath, staticDir, pihole = {}, clock = Date.now, synthetic = false }) {
+export function createRuntime({ publicOrigin, password, dataPath, staticDir, pihole = {}, clock = Date.now, synthetic = false, authDisabled = false }) {
   const origin = new URL(publicOrigin);
   if (!['http:', 'https:'].includes(origin.protocol) || origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/') throw Error('PUBLIC_ORIGIN must be the exact browser HTTP(S) origin, without a path.');
-  if (typeof password !== 'string' || password.length < 16 || password.length > 256 || /CHANGE_ME|REPLACE_ME/.test(password)) throw Error('Set a unique SUPER_PIHOLE_PASSWORD of 16-256 characters before starting.');
-  const salt = randomBytes(32), expected = scryptSync(password, salt, 64);
+  if (typeof authDisabled !== 'boolean') throw Error('authDisabled must be a boolean.');
+  if (!authDisabled && (typeof password !== 'string' || password.length < 16 || password.length > 256 || /CHANGE_ME|REPLACE_ME/.test(password))) throw Error('Set a unique SUPER_PIHOLE_PASSWORD of 16-256 characters before starting, or explicitly enable local no-login mode.');
+  const salt = randomBytes(32), expected = authDisabled ? null : scryptSync(password, salt, 64);
   const sessions = new Map(), attempts = new Map();
   let globalAttempts = { start: clock(), count: 0 };
   const store = createReviewStore(dataPath);
@@ -44,13 +45,14 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try {
       const path = new URL(req.url, origin).pathname;
-      if (path === '/healthz' && req.method === 'GET') return json(res, 200, { ok: true, service: 'Super Pi Hole', version: '0.4.0-test' });
+      if (path === '/healthz' && req.method === 'GET') return json(res, 200, { ok: true, service: 'Super Pi Hole', version: '0.4.1-test' });
       if (req.headers.host !== origin.host || req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== origin.origin)) throw fail(403, 'Use the configured Super Pi Hole address. Cross-origin requests are blocked.');
       if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== origin.origin) throw fail(403, 'A same-origin request is required.');
       for (const [key, expires] of sessions) if (expires <= clock()) sessions.delete(key);
-      const token = tokenFor(req), authenticated = sessions.has(token);
-      if (path === '/session-api/status' && req.method === 'GET') return json(res, 200, { authenticated, mode: 'server-test', insecureTransport: origin.protocol === 'http:', synthetic });
+      const token = tokenFor(req), authenticated = authDisabled || sessions.has(token);
+      if (path === '/session-api/status' && req.method === 'GET') return json(res, 200, { authenticated, authDisabled, mode: 'server-test', insecureTransport: origin.protocol === 'http:', synthetic });
       if (path === '/session-api/login' && req.method === 'POST') {
+        if (authDisabled) return json(res, 200, { authenticated: true, authDisabled: true, mode: 'server-test', insecureTransport: origin.protocol === 'http:', synthetic });
         const address = req.socket.remoteAddress;
         for (const [key, item] of attempts) if (item.until <= clock()) attempts.delete(key);
         if (clock() - globalAttempts.start > 900000) globalAttempts = { start: clock(), count: 0 };
@@ -70,6 +72,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
         return json(res, 200, { authenticated: true, mode: 'server-test', insecureTransport: origin.protocol === 'http:', synthetic });
       }
       if (path === '/session-api/logout' && req.method === 'POST') {
+        if (authDisabled) return json(res, 200, { authenticated: true, authDisabled: true });
         sessions.delete(token); res.setHeader('Set-Cookie', cookie('', 0));
         return json(res, 200, { authenticated: false });
       }
@@ -120,14 +123,14 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const env = process.env;
   const server = createRuntime({
-    publicOrigin: env.PUBLIC_ORIGIN ?? '', password: secret(env, 'SUPER_PIHOLE_PASSWORD'),
+    publicOrigin: env.PUBLIC_ORIGIN ?? '', password: secret(env, 'SUPER_PIHOLE_PASSWORD'), authDisabled: env.SUPER_PIHOLE_AUTH_DISABLED === 'true',
     dataPath: resolve(env.DATA_DIR ?? '.local/server-test', 'review.sqlite'),
     staticDir: resolve(env.STATIC_DIR ?? 'standalone-dist'),
     pihole: { url: env.PIHOLE_URL, password: secret(env, 'PIHOLE_PASSWORD'), writeEnabled: env.PIHOLE_WRITE_ENABLED === 'true', controlled: env.SUPER_PIHOLE_INTEGRATED === 'true' },
   });
   const port = Number(env.PORT ?? 8080);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid PORT.');
-  server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Super Pi Hole 0.4.0-test listening on port ${port}; live writes ${env.PIHOLE_WRITE_ENABLED === 'true' ? 'unlocked' : 'locked'}.`));
+  server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Super Pi Hole 0.4.1-test listening on port ${port}; live writes ${env.PIHOLE_WRITE_ENABLED === 'true' ? 'unlocked' : 'locked'}; GUI authentication ${env.SUPER_PIHOLE_AUTH_DISABLED === 'true' ? 'disabled' : 'enabled'}.`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 10000).unref();
