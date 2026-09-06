@@ -72,6 +72,13 @@ await eventually(async () => { try { return (await fetch(origin + '/healthz')).o
 cookie = null;
 await api('/session-api/login', { password: 'ci-only-long-test-password' });
 state = await api('/live-api/family/state');
+if (state.status === 'attention') {
+  state = await api('/live-api/family/retry', {
+    confirmed: true,
+    acknowledgement: 'RECONCILE MANAGED RULES',
+    revision: state.revision,
+  });
+}
 assert.equal(state.config.paused, true);
 assert.equal(state.config.profiles[0].name, 'CI child');
 await save({ version: 1, paused: false, detailDays: 30, profiles: [] });
