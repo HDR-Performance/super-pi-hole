@@ -47,7 +47,7 @@ and retained without automatic pruning; monitor disk space.
 
 ## Rollback
 
-Stop the integrated app before restoring anything. To undo 0.4.0-test managed
+Stop the integrated app before restoring anything. To undo 0.4.1-test managed
 family rules, restore BOTH Pi-hole and controller data from the matching backup;
 reverting only the image does not remove newly saved engine rules. Restore directories
 from the pre-upgrade TrueNAS snapshots (preferred), or the verified backup's

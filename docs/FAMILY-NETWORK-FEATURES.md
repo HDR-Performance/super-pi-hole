@@ -1,6 +1,6 @@
 # Family and network feature acceptance checklist
 
-0.4.0-test feature scope, September 5, 2026. Publishing source does not itself
+0.4.1-test feature scope, September 5, 2026. Publishing source does not itself
 upgrade an installed NAS. No new gateway authority is assumed: the selected
 deployment remains TrueNAS/Pi-hole now, gateway integration later.
 

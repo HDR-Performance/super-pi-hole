@@ -25,7 +25,7 @@ descriptions are not an implementation guide for the bundled v6 engine.
 
 ## Development source versus published installation
 
-This register describes the **0.4.0-test source**.
+This register describes the **0.4.1-test source**.
 The older 0.3.0-test image does not contain these new editors, history views,
 or the original-viewer authentication fix. Rebuilding a local preview does not
 upgrade an installed TrueNAS app. No real DHCP, DNS, list, password or router
