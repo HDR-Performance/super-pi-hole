@@ -1,8 +1,15 @@
 'use client';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { RefreshCw, ExternalLink, LockKeyhole } from 'lucide-react';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
+import { Switch } from './ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import {
   Table,
@@ -25,6 +32,10 @@ import {
 import { Choice, TextField, Empty } from './review-context';
 import { DnsMetrics, DnsVisuals, type DashboardData } from './dns-visuals';
 import { PrivacyPacks } from './privacy-packs';
+import { BlockingControl } from './blocking-control';
+import { FilteringManager } from './filtering-manager';
+import { HistoryExplorer } from './history-explorer';
+import { inspectionUrl } from '@/lib/family-dns.mjs';
 import type { QueryFocus } from '@/lib/dns-charts';
 
 type Status = {
@@ -65,12 +76,6 @@ type List = {
   groups: number[];
   comment: string | null;
   number: number;
-};
-type Client = {
-  id: number;
-  client: string;
-  groups: number[];
-  comment: string | null;
 };
 type Overview = {
   fetchedAt: string;
@@ -115,14 +120,23 @@ export async function liveApi<T>(
 export function useData<T>(path: string, revision: number) {
   const [data, setData] = useState<T | null>(null),
     [error, setError] = useState('');
-  const active = useRef<AbortController | null>(null), previousPath = useRef(path);
-  useEffect(() => () => { active.current?.abort(); }, [path]);
+  const active = useRef<AbortController | null>(null),
+    previousPath = useRef(path);
+  useEffect(
+    () => () => {
+      active.current?.abort();
+    },
+    [path],
+  );
   useEffect(() => {
     // Slow reads are allowed to finish instead of being cancelled by each tick.
     if (active.current && !active.current.signal.aborted) return;
     const abort = new AbortController();
     active.current = abort;
-    if (previousPath.current !== path) { setData(null); previousPath.current = path; }
+    if (previousPath.current !== path) {
+      setData(null);
+      previousPath.current = path;
+    }
     setError('');
     liveApi<T>(path, abort.signal)
       .then((value) => {
@@ -130,7 +144,10 @@ export function useData<T>(path: string, revision: number) {
       })
       .catch((e) => {
         if (!abort.signal.aborted) setError(e.message);
-      }).finally(() => { if (active.current === abort) active.current = null; });
+      })
+      .finally(() => {
+        if (active.current === abort) active.current = null;
+      });
   }, [path, revision]);
   return { data, error };
 }
@@ -150,9 +167,7 @@ function DataState({
   ) : loaded ? (
     children
   ) : (
-    <p role="status" className="nc-empty">
-      Reading Pi-hole…
-    </p>
+    <output className="nc-empty">Reading Pi-hole…</output>
   );
 }
 function Grid({
@@ -198,15 +213,16 @@ function LiveOverview({
   confirm,
   focus,
   showLists,
+  refresh,
 }: {
   revision: number;
   locked: boolean;
   confirm: (p: Pending) => void;
   focus: (filter: QueryFocus) => void;
   showLists: () => void;
+  refresh: () => void;
 }) {
   const { data, error } = useData<Overview>('overview', revision);
-  const [duration, setDuration] = useState('300');
   const d = data?.data;
   return (
     <DataState error={error} loaded={!!data}>
@@ -221,84 +237,27 @@ function LiveOverview({
               {key}: {value}
             </p>
           ))}
+          <BlockingControl
+            state={d?.blocking}
+            snapshotId={data.fetchedAt}
+            locked={locked}
+            confirm={confirm}
+            refresh={refresh}
+          />
           <DnsMetrics data={d ?? {}} focus={focus} showLists={showLists} />
-          <section className="panel">
-            <div className="section-head">
-              <h2>DNS blocking</h2>
-              <span
-                className={
-                  'badge ' +
-                  (d?.blocking?.blocking === 'enabled' ? 'green' : 'amber')
-                }
-              >
-                {d?.blocking?.blocking ?? 'Unknown'}
-              </span>
-            </div>
-            {d?.blocking?.timer != null && (
-              <p>
-                Pi-hole will switch blocking state in approximately{' '}
-                {Math.ceil(d.blocking.timer)} seconds.
-              </p>
-            )}
-            <div className="sph-actions">
-              <Button
-                disabled={locked || !d?.blocking}
-                onClick={() =>
-                  confirm({
-                    title: 'Enable live DNS blocking?',
-                    description:
-                      'Enable your existing Pi-hole’s rules for all clients using it. This is a real network change and cancels its current timer.',
-                    body: { action: 'blocking', blocking: true, timer: null },
-                  })
-                }
-              >
-                Enable blocking
-              </Button>
-              <Choice
-                label="Pause duration"
-                value={duration}
-                onChange={setDuration}
-                options={[
-                  { value: '60', label: '1 minute' },
-                  { value: '300', label: '5 minutes' },
-                  { value: '3600', label: '1 hour' },
-                  { value: 'permanent', label: 'Until manually enabled' },
-                ]}
-              />
-              <Button
-                variant="outline"
-                disabled={locked || !d?.blocking}
-                onClick={() =>
-                  confirm({
-                    title: 'Pause live DNS blocking?',
-                    description:
-                      duration === 'permanent'
-                        ? 'Disable Pi-hole blocking until you manually enable it again. This affects every client using this Pi-hole.'
-                        : `Disable Pi-hole blocking for ${Number(duration) / 60} minutes. Pi-hole will enable blocking afterwards, even if it was already disabled.`,
-                    body: {
-                      action: 'blocking',
-                      blocking: false,
-                      timer: duration === 'permanent' ? null : Number(duration),
-                    },
-                  })
-                }
-              >
-                Pause blocking
-              </Button>
-            </div>
-          </section>
           <DnsVisuals data={d ?? {}} focus={focus} />
           <section className="panel">
             <h2>Top DNS clients</h2>
             <Grid
               headers={['Client', 'Queries', 'Activity']}
               rows={(d?.topClients?.clients ?? []).map((c) => [
-                <span>
+                <span key="client">
                   {c.name || c.ip}
                   <small className="sph-sub">{c.ip}</small>
                 </span>,
                 number(c.count),
                 <Button
+                  key="queries"
                   variant="outline"
                   onClick={() => focus({ client_ip: c.ip })}
                 >
@@ -308,29 +267,36 @@ function LiveOverview({
             />
           </section>
           <div className="nc-two">
-            {[
-              ['Top permitted domains', d?.topDomains?.domains, 'permitted'],
-              ['Top blocked domains', d?.topBlocked?.domains, 'blocklist'],
-            ].map(([title, entries, upstream]) => (
-              <section className="panel" key={String(title)}>
-                <h2>{String(title)}</h2>
+            {(
+              [
+                ['Top permitted domains', d?.topDomains?.domains, 'permitted'],
+                ['Top blocked domains', d?.topBlocked?.domains, 'blocklist'],
+              ] as [
+                string,
+                { domain: string; count: number }[] | undefined,
+                string,
+              ][]
+            ).map(([title, entries, upstream]) => (
+              <section className="panel" key={title}>
+                <h2>{title}</h2>
                 <Grid
                   headers={['Domain', 'Queries']}
                   rows={(
                     (entries ?? []) as { domain: string; count: number }[]
                   ).map((row) => [
                     <button
+                      key="domain"
                       className="sph-domain-link"
                       onClick={() =>
                         focus({
                           domain: row.domain,
-                          upstream: String(upstream),
+                          upstream,
                         })
                       }
                     >
                       {row.domain} ↗
                     </button>,
-                    <span className="sph-rank">
+                    <span key="rank" className="sph-rank">
                       <span
                         style={{
                           width: `${Math.min(100, (row.count / Math.max(1, ...((entries ?? []) as { count: number }[]).map((r) => r.count))) * 100)}%`,
@@ -374,16 +340,48 @@ export function QueryLog({
     [client, setClient] = useState(initial.client_ip ?? ''),
     [result, setResult] = useState(initial.upstream ?? 'all'),
     [type, setType] = useState(initial.type ?? ''),
+    [disk, setDisk] = useState(initial.disk ?? 'false'),
+    [advanced, setAdvanced] = useState({
+      client_name: initial.client_name ?? '',
+      status: initial.status ?? '',
+      reply: initial.reply ?? '',
+      dnssec: initial.dnssec ?? '',
+    }),
+    [validation, setValidation] = useState(''),
     [range, setRange] = useState({ from: initial.from, until: initial.until }),
     [query, setQuery] = useState(new URLSearchParams(initial).toString()),
     [cursor, setCursor] = useState('');
+  const [follow, setFollow] = useState(false),
+    [queryTick, setQueryTick] = useState(0);
+  const followAvailable =
+    !cursor && new URLSearchParams(query).get('disk') !== 'true';
+  useEffect(() => {
+    if (!follow || !followAvailable) return;
+    const timer = setInterval(() => {
+      if (!document.hidden) setQueryTick((n) => n + 1);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [follow, followAvailable]);
   const request = new URLSearchParams(query);
+  const localDate = (timestamp?: string) => {
+    if (!timestamp) return '';
+    const date = new Date(Number(timestamp) * 1000);
+    return Number.isFinite(date.getTime())
+      ? new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 23)
+      : '';
+  };
+  const epoch = (date: string) =>
+    date && Number.isFinite(new Date(date).getTime())
+      ? String(new Date(date).getTime() / 1000)
+      : undefined;
   if (cursor) request.set('cursor', cursor);
   const { data, error } = useData<{
     queries: Query[];
     cursor: number | null;
     fetchedAt: string;
-  }>('queries?' + request, revision);
+  }>('queries?' + request, revision + queryTick);
   return (
     <section className="panel">
       <h2>Query log</h2>
@@ -394,7 +392,7 @@ export function QueryLog({
       {range.from && (
         <div className="sph-actions">
           <p>
-            Chart interval:{' '}
+            Selected interval:{' '}
             {new Date(Number(range.from) * 1000).toLocaleString()}
             {range.until
               ? ` – ${new Date(Number(range.until) * 1000).toLocaleString()}`
@@ -419,8 +417,20 @@ export function QueryLog({
         className="sph-actions"
         onSubmit={(e) => {
           e.preventDefault();
+          setValidation('');
+          if (
+            range.from &&
+            range.until &&
+            Number(range.from) > Number(range.until)
+          ) {
+            setValidation('The start must be before the end.');
+            return;
+          }
           setCursor('');
           const p = new URLSearchParams();
+          p.set('disk', disk);
+          for (const [key, value] of Object.entries(advanced))
+            if (value.trim()) p.set(key, value.trim());
           if (domain.trim()) p.set('domain', domain.trim());
           if (client.trim()) p.set('client_ip', client.trim());
           if (type.trim()) p.set('type', type.trim().toUpperCase());
@@ -452,6 +462,29 @@ export function QueryLog({
           placeholder="All types"
         />
         <Choice
+          label="History source"
+          value={disk}
+          onChange={setDisk}
+          options={[
+            { value: 'false', label: 'Recent / in-memory queries' },
+            { value: 'true', label: 'Stored history database' },
+          ]}
+        />
+        <TextField
+          id="history-from"
+          label="From (your local time)"
+          type="datetime-local"
+          value={localDate(range.from)}
+          onChange={(v) => setRange((r) => ({ ...r, from: epoch(v) }))}
+        />
+        <TextField
+          id="history-until"
+          label="Until (your local time)"
+          type="datetime-local"
+          value={localDate(range.until)}
+          onChange={(v) => setRange((r) => ({ ...r, until: epoch(v) }))}
+        />
+        <Choice
           label="Result"
           value={result}
           onChange={setResult}
@@ -465,9 +498,72 @@ export function QueryLog({
               : []),
           ]}
         />
+        <details className="sph-query-advanced">
+          <summary>More filters</summary>
+          <div className="sph-actions">
+            {Object.entries({
+              client_name: 'Client hostname',
+              status: 'Query status (e.g. GRAVITY)',
+              reply: 'Reply type (e.g. NXDOMAIN)',
+              dnssec: 'DNSSEC status (e.g. SECURE)',
+            }).map(([key, label]) => (
+              <TextField
+                key={key}
+                id={'query-' + key}
+                label={label}
+                value={advanced[key as keyof typeof advanced]}
+                onChange={(v) => setAdvanced((a) => ({ ...a, [key]: v }))}
+              />
+            ))}
+          </div>
+        </details>
         <Button type="submit">Apply filters</Button>
-        <Button type="button" variant="outline" onClick={() => { setDomain(''); setClient(initial.client_ip ?? ''); setResult('all'); setType(''); setRange({ from: undefined, until: undefined }); setCursor(''); setQuery(new URLSearchParams(initial.client_ip ? { client_ip: initial.client_ip } : {}).toString()); }}>Clear filters</Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setDomain('');
+            setClient(initial.client_ip ?? '');
+            setResult('all');
+            setType('');
+            setDisk('false');
+            setAdvanced({ client_name: '', status: '', reply: '', dnssec: '' });
+            setValidation('');
+            setRange({ from: undefined, until: undefined });
+            setCursor('');
+            setQuery(
+              new URLSearchParams(
+                initial.client_ip ? { client_ip: initial.client_ip } : {},
+              ).toString(),
+            );
+          }}
+        >
+          Clear filters
+        </Button>
       </form>
+      {validation && (
+        <p role="alert" className="pc-error">
+          {validation}
+        </p>
+      )}
+      <p>
+        Stored history is limited by Pi-hole’s retention and privacy settings.
+        Times use this browser’s timezone. Apply filters to load the selected
+        source.
+      </p>
+      <label className="sph-check" htmlFor="follow-queries">
+        <Switch
+          id="follow-queries"
+          checked={follow}
+          onCheckedChange={setFollow}
+        />
+        Follow recent queries every 5 seconds
+      </label>
+      <small>
+        {followAvailable
+          ? 'Automatic reads pause while the browser tab is hidden.'
+          : 'Following is paused while viewing stored history or older pages.'}
+      </small>
       <DataState error={error} loaded={!!data}>
         {data && (
           <>
@@ -480,20 +576,21 @@ export function QueryLog({
                 'Domain rule',
               ]}
               rows={data.queries.map((q) => [
-                new Date(q.time * 1000).toLocaleTimeString(),
-                <span>
+                new Date(q.time * 1000).toLocaleString(),
+                <span key="client">
                   {q.client?.name || q.client?.ip}
                   <small className="sph-sub">{q.client?.ip}</small>
                 </span>,
-                <span>
+                <span key="domain">
                   {q.domain}
                   <small className="sph-sub">{q.type}</small>
+                  {inspectionUrl(q.domain) && <a href={inspectionUrl(q.domain)!} target="_blank" rel="noopener noreferrer" onClick={e => { if (!window.confirm(`Open https://${q.domain}/ for manual inspection? This contacts the site and it may be unsafe. A DNS query is not proof someone visited it.`)) e.preventDefault(); }}>Inspect site ↗</a>}
                 </span>,
-                <span>
+                <span key="status">
                   {q.status ?? 'Unknown'}
                   <small className="sph-sub">{q.reply?.type}</small>
                 </span>,
-                <div className="sph-actions">
+                <div key="actions" className="sph-actions">
                   <Button
                     variant="outline"
                     onClick={() => prepareRule(q.domain, 'allow')}
@@ -553,6 +650,8 @@ function DomainRules({
   const { data, error } = useData<{ domains: Rule[] }>('domains', revision);
   const groups = useData<{ groups: Group[] }>('groups', revision);
   const [domain, setDomain] = useState(seed.domain),
+    [editing, setEditing] = useState<Rule | null>(null),
+    [enabled, setEnabled] = useState(true),
     [type, setType] = useState(seed.type),
     [kind, setKind] = useState('exact'),
     [comment, setComment] = useState(''),
@@ -574,26 +673,38 @@ function DomainRules({
         onSubmit={(e) => {
           e.preventDefault();
           confirm({
-            title: `Add live ${type === 'allow' ? 'allow' : 'block'} rule?`,
+            title: `${editing ? 'Update' : 'Add'} live ${type === 'allow' ? 'allow' : 'block'} rule?`,
             description: `${kind} rule: ${domain}. Applies to Pi-hole groups: ${groupLabel(selected)}. It is not automatically limited to the device you selected in the query log.`,
             body: {
-              action: 'domain-add',
+              action: editing ? 'domain-edit' : 'domain-add',
               domain,
-              type,
+              type: editing?.type ?? type,
+              nextType: type,
               kind,
               comment,
               groups: selected,
+              enabled,
+              expected: editing,
             },
           });
         }}
       >
         <div className="sph-actions">
-          <TextField
-            id="live-rule-domain"
-            label="Domain or POSIX regular expression"
-            value={domain}
-            onChange={setDomain}
-          />
+          {!editing ? (
+            <TextField
+              id="live-rule-domain"
+              label="Domain or POSIX regular expression"
+              value={domain}
+              onChange={setDomain}
+            />
+          ) : (
+            <p>
+              <strong>Editing {editing.domain}</strong>
+              <small className="sph-sub">
+                The hostname and match kind stay unchanged.
+              </small>
+            </p>
+          )}
           <Choice
             label="Action"
             value={type}
@@ -605,6 +716,7 @@ function DomainRules({
           />
           <Choice
             label="Match"
+            disabled={!!editing}
             value={kind}
             onChange={setKind}
             options={[
@@ -619,11 +731,22 @@ function DomainRules({
           value={comment}
           onChange={setComment}
         />
+        {editing && (
+          <label className="sph-check" htmlFor="rule-enabled">
+            <Switch
+              id="rule-enabled"
+              checked={enabled}
+              onCheckedChange={setEnabled}
+            />
+            Rule enabled
+          </label>
+        )}
         <fieldset className="sph-groups">
           <legend>Existing Pi-hole groups</legend>
           {options.map((g) => (
-            <label key={g.id}>
+            <label key={g.id} htmlFor={'domain-group-' + g.id}>
               <Checkbox
+                id={'domain-group-' + g.id}
                 checked={selected.includes(g.id)}
                 onCheckedChange={(checked) =>
                   setSelected((old) =>
@@ -643,7 +766,7 @@ function DomainRules({
           disabled={
             locked ||
             !domain.trim() ||
-            !selected.length ||
+            (!editing && !selected.length) ||
             !groups.data ||
             selected.some((id) => !options.some((g) => g.id === id))
           }
@@ -651,6 +774,26 @@ function DomainRules({
         >
           Review live rule
         </Button>
+        {editing && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setEditing(null);
+              setDomain('');
+              setType('deny');
+              setKind('exact');
+              setComment('');
+              setSelected([0]);
+              setEnabled(true);
+            }}
+          >
+            Finish editing / new rule
+          </Button>
+        )}
+        {editing && !selected.length && (
+          <p>This rule has no groups and will not apply to clients.</p>
+        )}
       </form>
       <TextField
         id="live-rule-search"
@@ -666,31 +809,48 @@ function DomainRules({
               r.domain.toLowerCase().includes(filter.toLowerCase()),
             )
             .map((r) => [
-              <span>
+              <span key="domain">
                 {r.domain}
                 <small className="sph-sub">{r.comment}</small>
               </span>,
               `${r.type} / ${r.kind}`,
               groupLabel(r.groups),
               r.enabled ? 'Enabled' : 'Disabled',
-              <Button
-                variant="outline"
-                disabled={locked}
-                onClick={() =>
-                  confirm({
-                    title: 'Remove live domain rule?',
-                    description: `Delete ${r.type}/${r.kind}: ${r.domain}. Its current groups are ${groupLabel(r.groups)}. Other rules are unchanged. There is no simulator Undo for a live deletion.`,
-                    body: {
-                      action: 'domain-delete',
-                      domain: r.domain,
-                      type: r.type,
-                      kind: r.kind,
-                    },
-                  })
-                }
-              >
-                Remove
-              </Button>,
+              <div key="actions" className="sph-actions">
+                <Button
+                  variant="outline"
+                  disabled={locked}
+                  onClick={() => {
+                    setEditing(r);
+                    setDomain(r.domain);
+                    setKind(r.kind);
+                    setType(r.type);
+                    setComment(r.comment ?? '');
+                    setSelected(r.groups);
+                    setEnabled(r.enabled);
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={locked}
+                  onClick={() =>
+                    confirm({
+                      title: 'Remove live domain rule?',
+                      description: `Delete ${r.type}/${r.kind}: ${r.domain}. Its current groups are ${groupLabel(r.groups)}. Other rules are unchanged. There is no simulator Undo for a live deletion.`,
+                      body: {
+                        action: 'domain-delete',
+                        domain: r.domain,
+                        type: r.type,
+                        kind: r.kind,
+                      },
+                    })
+                  }
+                >
+                  Remove
+                </Button>
+              </div>,
             ])}
         />
       </DataState>
@@ -714,8 +874,8 @@ function LocalDns({
       <h2>Local DNS records</h2>
       <p>
         Give a local IP a hostname. This does not reserve the IP in DHCP or
-        rename a device in the router. CNAME records remain in the original
-        Pi-hole interface.
+        rename a device in the router. CNAME aliases are available in Settings &
+        diagnostics under Everyday controls.
       </p>
       <form
         className="sph-actions"
@@ -754,12 +914,13 @@ function LocalDns({
               address,
               names.join(', '),
               <Button
+                key="remove"
                 variant="outline"
                 disabled={locked || names.length !== 1}
                 onClick={() =>
                   confirm({
                     title: 'Remove local DNS record?',
-                    description: `Remove ${record}. Other records are unchanged. Multi-name records must be managed in the original Pi-hole interface.`,
+                    description: `Remove ${record}. Other records are unchanged. Multi-name records can be managed under Settings & tools → Local host records.`,
                     body: {
                       action: 'local-dns-delete',
                       ip: address,
@@ -777,82 +938,14 @@ function LocalDns({
     </section>
   );
 }
-function Inventory({
-  kind,
-  revision,
-}: {
-  kind: 'lists' | 'groups' | 'clients';
-  revision: number;
-}) {
-  const { data, error } = useData<{
-    lists?: List[];
-    groups?: Group[];
-    clients?: Client[];
-  }>(kind, revision);
-  const [filter, setFilter] = useState('');
-  const entries = (data?.[kind] ?? []).filter((row) =>
-    JSON.stringify(row).toLowerCase().includes(filter.toLowerCase()),
-  );
-  const rows = entries.map((row) => {
-    if (kind === 'lists') {
-      const r = row as List;
-      return [
-        r.address,
-        r.type,
-        r.enabled ? 'Enabled' : 'Disabled',
-        r.groups?.join(', '),
-        number(r.number),
-        r.comment,
-      ];
-    }
-    if (kind === 'groups') {
-      const r = row as Group;
-      return [r.id, r.name, r.enabled ? 'Enabled' : 'Disabled', r.comment];
-    }
-    const r = row as Client;
-    return [r.client, r.groups?.join(', '), r.comment];
-  });
-  return (
-    <section className="panel">
-      <h2>
-        {kind === 'lists'
-          ? 'Subscribed blocklists'
-          : kind === 'groups'
-            ? 'Pi-hole groups'
-            : 'Configured client assignments'}
-      </h2>
-      <p>
-        {kind === 'clients'
-          ? 'Configured assignments are not the full connected-device inventory. Use Top DNS clients and the query log for observed DNS activity.'
-          : 'Read-only view of your existing Pi-hole configuration. Use the original Pi-hole interface to edit these records.'}
-      </p>
-      <TextField
-        id={'live-filter-' + kind}
-        label="Filter records"
-        value={filter}
-        onChange={setFilter}
-      />
-      <DataState error={error} loaded={!!data}>
-        <Grid
-          headers={
-            kind === 'lists'
-              ? ['Address', 'Type', 'State', 'Group IDs', 'Domains', 'Comment']
-              : kind === 'groups'
-                ? ['ID', 'Name', 'State', 'Comment']
-                : ['Client identifier', 'Group IDs', 'Comment']
-          }
-          rows={rows}
-        />
-      </DataState>
-    </section>
-  );
-}
 export function LivePihole() {
+  const [mutationRevision, setMutationRevision] = useState(0);
   const [revision, setRevision] = useState(0),
     [tab, setTab] = useState('overview'),
     [queryFocus, setQueryFocus] = useState<QueryFocus>({}),
     [seed, setSeed] = useState({ domain: '', type: 'deny' }),
     [refresh, setRefresh] = useState('5');
+  const refreshNow = useCallback(() => setRevision((r) => r + 1), []);
   const { data: status, error } = useData<Status>('status', revision);
   const [pending, setPending] = useState<Pending | null>(null),
     [busy, setBusy] = useState(false),
@@ -928,7 +1021,9 @@ export function LivePihole() {
                   Open original Pi-hole administration{' '}
                   <ExternalLink size={16} />
                 </a>{' '}
-                {status.controlled ? '— read-only viewer; Super Pi Hole owns live changes.' : '— original settings and diagnostics.'}
+                {status.controlled
+                  ? '— read-only viewer; Super Pi Hole owns live changes.'
+                  : '— original settings and diagnostics.'}
               </p>
             )}
             {!status.configured ? (
@@ -962,6 +1057,7 @@ export function LivePihole() {
                     {[
                       ['overview', 'Dashboard'],
                       ['queries', 'Query log'],
+                      ['history', 'Long-term history'],
                       ['domains', 'Domain rules'],
                       ['localdns', 'Local DNS'],
                       ['lists', 'Lists'],
@@ -997,6 +1093,7 @@ export function LivePihole() {
                       confirm={setPending}
                       focus={focus}
                       showLists={() => setTab('lists')}
+                      refresh={refreshNow}
                     />
                   </TabsContent>
                   <TabsContent value="queries">
@@ -1010,9 +1107,12 @@ export function LivePihole() {
                       }}
                     />
                   </TabsContent>
+                  <TabsContent value="history">
+                    <HistoryExplorer revision={revision} focus={focus} />
+                  </TabsContent>
                   <TabsContent value="domains">
                     <DomainRules
-                      key={seed.domain + seed.type}
+                      key={seed.domain + seed.type + mutationRevision}
                       seed={seed}
                       revision={revision}
                       locked={locked}
@@ -1028,7 +1128,13 @@ export function LivePihole() {
                   </TabsContent>
                   {(['lists', 'groups', 'clients'] as const).map((kind) => (
                     <TabsContent value={kind} key={kind}>
-                      <Inventory kind={kind} revision={revision} />
+                      <FilteringManager
+                        key={kind + mutationRevision}
+                        kind={kind}
+                        revision={revision}
+                        locked={locked}
+                        confirm={setPending}
+                      />
                       {kind === 'lists' && (
                         <>
                           <PrivacyPacks
@@ -1077,6 +1183,7 @@ export function LivePihole() {
                     { ...pending.body, confirmed: true },
                   );
                   setMessage(result.message);
+                  setMutationRevision((r) => r + 1);
                   setPending(null);
                 } catch (e) {
                   setActionError(

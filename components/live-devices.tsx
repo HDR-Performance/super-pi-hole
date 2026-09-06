@@ -23,8 +23,8 @@ export function LiveDevices() {
     {(inventory.error || error) && <p role="alert" className="pc-error">{inventory.error || error}</p>}
     <section className="panel">
       <label>Find a device<input value={search} onChange={e => setSearch(e.target.value)} placeholder="Name, IP, MAC or manufacturer" /></label>
-      <div style={{ maxHeight: 420, overflow: 'auto' }}><table className="data-table"><thead><tr><th>Device</th><th>Addresses</th><th>Last DNS request</th><th>Queries</th></tr></thead><tbody>
-        {rows.map(d => <tr key={d.id}><td><Button variant="ghost" onClick={() => choose(d.ips[0]?.ip ?? d.hwaddr)}><Monitor />{d.ips.find(a => a.name)?.name ?? d.macVendor ?? d.hwaddr}</Button><small>{d.hwaddr}</small></td><td>{d.ips.map(a => a.ip).join(', ')}</td><td>{d.lastQuery ? new Date(d.lastQuery * 1000).toLocaleString() : 'Not observed'}</td><td>{d.numQueries.toLocaleString()}</td></tr>)}
+      <div style={{ maxHeight: 420, overflow: 'auto' }}><table className="data-table"><thead><tr><th>Device</th><th>Addresses</th><th>Last DNS request</th><th>Queries</th><th>Activity / data</th></tr></thead><tbody>
+        {rows.map(d => <tr key={d.id}><td><Button variant="ghost" onClick={() => choose(d.ips[0]?.ip ?? d.hwaddr)}><Monitor />{d.ips.find(a => a.name)?.name ?? d.macVendor ?? d.hwaddr}</Button><small>{d.hwaddr}</small></td><td>{d.ips.map(a => a.ip).join(', ')}</td><td>{d.lastQuery ? new Date(d.lastQuery * 1000).toLocaleString() : 'Not observed'}</td><td>{d.numQueries.toLocaleString()}</td><td>{inventory.data && d.lastQuery * 1000 >= new Date(inventory.data.fetchedAt).getTime() - 300000 ? 'DNS active in last 5 minutes' : 'No recent DNS observed'}<small className="sph-sub">Bytes: unavailable · needs gateway telemetry</small></td></tr>)}
       </tbody></table>{!rows.length && <p>No matching observed devices. Devices must be visible to this Pi-hole; this is not a full LAN scan.</p>}</div>
       {inventory.data && <small>Last inventory response: {new Date(inventory.data.fetchedAt).toLocaleTimeString()}</small>}
     </section>
@@ -33,7 +33,7 @@ export function LiveDevices() {
       <label>Manual IP or MAC<input value={selected} onChange={e => choose(e.target.value)} placeholder="192.0.2.20" /></label>
       {selected && <><h3>{device?.ips.find(a => a.name)?.name ?? selected}</h3><Button onClick={() => showHistory(v => !v)} disabled={selected.includes(':') && !selected.includes('::') && selected.split(':').every(x => x.length === 2)}>History</Button>
         <fieldset><legend>Live filtering groups / family groups</legend>{inventory.data?.groups.map(g => <label key={g.id} style={{ display: 'block', padding: 6 }}><input type="checkbox" checked={groups.includes(g.id)} onChange={e => setGroups(e.target.checked ? [...groups, g.id] : groups.filter(id => id !== g.id))} /> {g.name}{!g.enabled && ' (disabled group)'}</label>)}</fieldset>
-        <p>These are real Pi-hole groups. Existing list/domain rules assigned to those groups will apply. Policy-lab family profiles and schedules remain simulations.</p>
+        <p>These are real Pi-hole groups. Register a dedicated group under Parental Controls to attach live social blocks and schedules. The separately labeled policy simulator remains non-enforcing.</p>
         <Button disabled={busy || !status.data?.writeEnabled || !groups.length} onClick={async () => {
           if (!window.confirm(`Apply groups ${groups.join(', ')} to ${selected}? This changes live DNS filtering.`)) return;
           setBusy(true); setError(''); setMessage('');

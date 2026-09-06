@@ -12,11 +12,16 @@ export type ClientHistory = {
 };
 export type QueryFocus = {
   client_ip?: string;
+  client_name?: string;
+  status?: string;
+  reply?: string;
+  dnssec?: string;
   domain?: string;
   upstream?: string;
   type?: string;
   from?: string;
   until?: string;
+  disk?: string;
 };
 const count = (v: unknown): v is number =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0;

@@ -1,10 +1,10 @@
 # UPGRADE THE EXISTING pihole APP; do not run a second DNS engine on port 53.
 # Stop the old standalone Super Pi Hole companion (port 20721) before applying.
-# Set a new Super Pi Hole password below. Existing Pi-hole password stays unchanged.
+# Reuse your current Super Pi Hole password below. Pi-hole password stays unchanged.
 # This template targets the directories supplied for 192.168.0.8.
 services:
   backup:
-    image: ghcr.io/hdr-performance/super-pi-hole:0.3.0-test
+    image: ghcr.io/hdr-performance/super-pi-hole:0.4.1-test
     user: '0:0'
     network_mode: host
     restart: 'no'
@@ -35,7 +35,7 @@ services:
         bind: {create_host_path: true}
     healthcheck: {disable: true}
   pihole:
-    image: ghcr.io/hdr-performance/super-pi-hole:0.3.0-test
+    image: ghcr.io/hdr-performance/super-pi-hole:0.4.1-test
     user: '0:0'
     network_mode: host
     platform: linux/amd64
@@ -69,7 +69,7 @@ services:
       retries: 5
       start_period: 60s
   super-pi-hole:
-    image: ghcr.io/hdr-performance/super-pi-hole:0.3.0-test
+    image: ghcr.io/hdr-performance/super-pi-hole:0.4.1-test
     user: '568:568'
     network_mode: host
     restart: unless-stopped
@@ -115,4 +115,5 @@ x-notes: >
   a verified read-only backup. Open the main GUI using Web UI. The original
   interface is available read-only at /admin/ after signing into Super Pi Hole.
   Application updates come from HDR-Performance/super-pi-hole releases only.
-  Policy-lab family, scheduling and country simulations are not DNS enforcement.
+  Live family DNS controls are separate from the policy simulator. Country
+  enforcement, bandwidth monitoring and universal block-page redirection are not included.

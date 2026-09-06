@@ -30,6 +30,28 @@ async function fixture(t, options = {}) {
 test('server rejects missing or placeholder administrator credentials at startup', () => {
   for (const password of ['', 'short', 'CHANGE_ME_TO_A_LONG_PASSWORD']) assert.throws(() => createRuntime({ publicOrigin: 'http://localhost:8080', password }));
 });
+
+test('explicit local no-login mode starts without a GUI password but keeps same-origin write checks', async t => {
+  const { call } = await fixture(t, { password: '', authDisabled: true });
+  const status = await (await call('/session-api/status')).json();
+  assert.equal(status.authenticated, true);
+  assert.equal(status.authDisabled, true);
+  assert.equal((await call('/live-api/overview')).status, 200);
+  const denied = await call('/live-api/action', { method: 'POST', headers: { Origin: 'http://evil.example', 'Content-Type': 'application/json', 'X-Super-Pihole-Review': '1' }, body: JSON.stringify({ action: 'blocking', blocking: false, timer: 10, confirmed: true }) });
+  assert.equal(denied.status, 403);
+  assert.equal((await call('/session-api/logout', { method: 'POST' })).status, 200);
+  assert.equal((await (await call('/session-api/status')).json()).authenticated, true);
+});
+
+test('preview identity is visible before login without changing installed authentication', async t => {
+  const normal = await fixture(t);
+  assert.equal((await (await normal.call('/session-api/status')).json()).synthetic, false);
+  const preview = await fixture(t, { synthetic: true });
+  const state = await (await preview.call('/session-api/status')).json();
+  assert.equal(state.synthetic, true);
+  assert.equal(state.authenticated, false);
+  assert.equal((await preview.call('/live-api/overview')).status, 401);
+});
 test('sign-in protects live and review data; cookie and security headers are present', async t => {
   const { call, login } = await fixture(t);
   assert.equal((await call('/live-api/overview')).status, 401);
@@ -41,6 +63,22 @@ test('sign-in protects live and review data; cookie and security headers are pre
   assert.match(state.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   const live = await call('/live-api/overview', { headers: { Cookie: cookie } });
   assert.equal((await live.json()).data.summary.queries.total, 250);
+});
+
+test('family routes require authentication and same-origin confirmation; saves never change global blocking', async t => {
+  const { call, login, api } = await fixture(t);
+  assert.equal((await call('/live-api/family/state')).status, 401);
+  const cookie = (await login()).headers.get('set-cookie').split(';')[0];
+  const headers = { Cookie: cookie, 'Content-Type': 'application/json' };
+  const config = { version: 1, paused: false, detailDays: 30, profiles: [{ groupId: 1, name: 'Family', timezone: 'UTC', blocked: ['reddit'], schedules: [] }] };
+  assert.equal((await call('/live-api/family/save', { method: 'POST', headers: { ...headers, Origin: 'http://evil.example' }, body: JSON.stringify({ revision: 0, config, confirmed: true }) })).status, 403);
+  assert.equal((await call('/live-api/family/save', { method: 'POST', headers, body: JSON.stringify({ revision: 0, config }) })).status, 400);
+  const saved = await call('/live-api/family/save', { method: 'POST', headers, body: JSON.stringify({ revision: 0, config, confirmed: true }) });
+  assert.equal(saved.status, 200); assert.equal((await saved.json()).status, 'applied');
+  const snapshot = await (await call('/live-api/family/state', { headers })).json();
+  assert.equal(snapshot.config.profiles[0].name, 'Family'); assert.ok(snapshot.unread);
+  assert.equal(api.calls.some(c => c.path === '/api/dns/blocking' && c.method !== 'GET'), false);
+  assert.equal(api.calls.some(c => c.path === '/api/config' && c.method !== 'GET'), false);
 });
 test('wrong hosts and cross-origin changes are rejected even when authenticated', async t => {
   const { call, login, api } = await fixture(t);
@@ -66,6 +104,21 @@ test('logout revokes an existing cookie and static paths cannot expose files', a
   assert.equal((await call('/session-api/logout', { method: 'POST', headers: { Cookie: cookie } })).status, 200);
   assert.equal((await call('/live-api/status', { headers: { Cookie: cookie } })).status, 401);
   for (const path of ['/server/runtime.mjs', '/.local/review.sqlite', '/assets/%2e%2e%2fserver%2fruntime.mjs', '/package.json', '/.env']) assert.equal((await call(path)).status, 404);
+});
+
+test('authenticated GUI controls support short, custom, indefinite and resume actions', async t => {
+  const { call, login, api } = await fixture(t);
+  const cookie = (await login()).headers.get('set-cookie').split(';')[0];
+  const headers = { Cookie: cookie, 'Content-Type': 'application/json', 'X-Super-Pihole-Review': '1' };
+  for (const [blocking, timer] of [[false, 10], [false, 420], [false, null], [true, null]]) {
+    const response = await call('/live-api/action', { method: 'POST', headers, body: JSON.stringify({ action: 'blocking', blocking, timer, confirmed: true }) });
+    assert.equal(response.status, 200);
+    assert.deepEqual(api.calls.at(-1).body, { blocking, timer });
+    const state = (await (await call('/live-api/overview', { headers })).json()).data.blocking;
+    assert.equal(state.blocking, blocking ? 'enabled' : 'disabled');
+    if (timer === null) assert.equal(state.timer, null);
+    else assert.ok(state.timer > 0 && state.timer <= timer);
+  }
 });
 test('sessions expire and HTTPS origins receive Secure cookies', async t => {
   let now = Date.now();

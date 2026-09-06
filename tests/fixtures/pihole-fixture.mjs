@@ -1,8 +1,8 @@
 // Synthetic RFC 5737 / .example data only. Never calls an actual Pi-hole.
-export function fixtureFetch() {
+export function fixtureFetch({ clock = Date.now } = {}) {
   const calls = [];
   let blocking = 'disabled',
-    timer = null;
+    timer = null, expiresAt = null, timerTarget = true;
   const domains = [
     {
       id: 1,
@@ -17,7 +17,14 @@ export function fixtureFetch() {
   const hosts = ['192.0.2.20 printer.home.arpa'];
   const clients = [{ id: 1, client: '192.0.2.20', groups: [1], comment: 'Test printer' }];
   const groups = [{ id: 0, name: 'Default', enabled: true, comment: 'Synthetic group' }, { id: 1, name: 'IoT', enabled: true, comment: 'Synthetic group' }];
-  const config = { dns: { upstreams: ['192.0.2.53'], hosts, port: 53, dnssec: false }, dhcp: { active: false }, ntp: { sync: { active: false } }, resolver: { resolveIPv4: true }, database: { maxDBdays: 91 } };
+  const config = { dns: { upstreams: ['192.0.2.53'], hosts, port: 53, listeningMode: 'LOCAL', dnssec: false, queryLogging: true, cnameRecords: [], revServers: [], cache: { size: 10000 }, domainNeeded: true, bogusPriv: true }, dhcp: { active: false, start: '192.0.2.50', end: '192.0.2.200', router: '192.0.2.1', netmask: '255.255.255.0', leaseTime: '24h', hosts: [] }, ntp: { sync: { active: false } }, resolver: { resolveIPv4: true }, database: { maxDBdays: 91 }, misc: { privacylevel: 0 } };
+  const detailed = (value, prefix = '') => Object.fromEntries(Object.entries(value).map(([key, item]) => {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (item && typeof item === 'object' && !Array.isArray(item)) return [key, detailed(item, path)];
+    return [key, { value: item, default: item, type: Array.isArray(item) ? 'array' : typeof item === 'number' ? 'unsigned integer' : typeof item, description: `Synthetic setting for ${path}. Production descriptions come directly from FTL.`, allowed: path === 'misc.privacylevel' ? [0, 1, 2, 3].map((item, i) => ({ item, description: ['Show all', 'Hide domains', 'Hide domains and clients', 'Anonymous mode'][i] })) : null, flags: { env_var: path === 'dns.listeningMode', restart_dnsmasq: path.startsWith('dhcp.') } }];
+  }));
+  const merge = (target, patch) => { for (const [key, value] of Object.entries(patch)) { if (value && typeof value === 'object' && !Array.isArray(value)) merge(target[key] ??= {}, value); else target[key] = value; } };
+  const leases = [{ ip: '192.0.2.51', name: 'Test tablet', hwaddr: '02:00:00:00:00:51', expires: 1893456000, clientid: '*' }];
   const lists = [
     {
       id: 1,
@@ -70,15 +77,37 @@ export function fixtureFetch() {
       return response({
         session: { valid: true, sid: 'fixture-session', validity: 300 },
       });
+    if (u.pathname === '/api/stats/database/summary') return response({ sum_queries: 250, sum_blocked: 40, percent_blocked: 16, total_clients: 2 });
+    if (u.pathname.startsWith('/api/stats/database/')) u.pathname = u.pathname.replace('/stats/database/', '/stats/');
+    if (u.pathname.startsWith('/api/history/database')) u.pathname = u.pathname.replace('/history/database', '/history');
     if (u.pathname === '/api/network/devices') return response({ devices: [{ id: 1, hwaddr: '02:00:00:00:00:20', interface: 'fixture0', firstSeen: now - 86400, lastQuery: now, numQueries: 200, macVendor: 'Synthetic printer', ips: [{ ip: '192.0.2.20', name: 'Test printer', lastSeen: now }] }] });
-    if (u.pathname === '/api/config') { if (method === 'PATCH') for (const [key, value] of Object.entries(body.config)) Object.assign(config[key], value); return response({ config }); }
+    if (u.pathname === '/api/config') { if (method === 'PATCH') merge(config, body.config); return response({ config: u.searchParams.get('detailed') === 'true' ? detailed(config) : config }); }
+    if (u.pathname === '/api/dhcp/leases') return response({ leases });
+    if (u.pathname.startsWith('/api/dhcp/leases/') && method === 'DELETE') { const index = leases.findIndex(l => l.ip === decodeURIComponent(u.pathname.split('/').at(-1))); if (index !== -1) leases.splice(index, 1); return new Response(null, { status: 204 }); }
+    if (u.pathname.startsWith('/api/logs/')) return response({ log: [{ timestamp: now, message: 'Synthetic engine log: DNS engine ready' }], nextID: 1, pid: 123, file: '/synthetic/log' });
+    if (u.pathname.startsWith('/api/search/')) return response({ search: { domains: domains.filter(d => d.domain.includes(decodeURIComponent(u.pathname.split('/').at(-1)))), gravity: [{ domain: 'telemetry.example', address: 'https://lists.example/balanced.txt', type: 'block', enabled: true, groups: [0] }], parameters: { N: 100, partial: u.searchParams.get('partial') === 'true' } } });
+    if (u.pathname === '/api/info/system') return response({ system: { uptime: 3600, memory: { total: 1048576, used: 65536 }, load: { raw: [0.1, 0.2, 0.1] } } });
+    if (u.pathname === '/api/info/ftl') return response({ ftl: { privacy_level: config.misc.privacylevel, pid: 123 } });
+    if (u.pathname === '/api/info/database') return response({ database: { size: 102400, queries: 250 } });
+    if (u.pathname === '/api/info/messages') return response({ messages: [] });
+    if (u.pathname === '/api/network/interfaces') return response({ interfaces: [{ name: 'fixture0', addresses: [{ address: '192.0.2.8' }] }] });
+    if (u.pathname === '/api/network/routes') return response({ routes: [{ dst: 'default', gateway: '192.0.2.1' }] });
+    if (u.pathname === '/api/network/gateway') return response({ gateway: [{ address: '192.0.2.1', interface: 'fixture0' }] });
+    if (u.pathname.startsWith('/api/action/') && u.pathname !== '/api/action/gravity') return response({ status: 'success' });
     if (u.pathname === '/api/action/gravity') return new Response('[✓] Done\n');
     if (u.pathname === '/api/dns/blocking') {
+      if (expiresAt !== null && clock() >= expiresAt) {
+        blocking = timerTarget ? 'enabled' : 'disabled';
+        timer = null;
+        expiresAt = null;
+      }
       if (method === 'POST') {
+        timerTarget = body.blocking === (blocking === 'enabled') ? true : !body.blocking;
         blocking = body.blocking ? 'enabled' : 'disabled';
         timer = body.timer;
+        expiresAt = timer === null ? null : clock() + timer * 1000;
       }
-      return response({ blocking, timer });
+      return response({ blocking, timer: expiresAt === null ? null : Math.max(0, (expiresAt - clock()) / 1000) });
     }
     if (u.pathname === '/api/stats/summary')
       return response({
@@ -192,6 +221,10 @@ export function fixtureFetch() {
       const [, , , type, kind, encoded] = u.pathname.split('/');
       if (method === 'POST')
         domains.push({ ...body, id: domains.length + 10, type, kind });
+      if (method === 'PUT') {
+        const existing = domains.find(r => r.type === type && r.kind === kind && r.domain === decodeURIComponent(encoded));
+        if (existing) Object.assign(existing, body);
+      }
       if (method === 'DELETE') {
         const index = domains.findIndex(
           (r) =>
@@ -222,10 +255,11 @@ export function fixtureFetch() {
     if (u.pathname === '/api/groups') { if (method === 'POST') groups.push({ ...body, id: groups.length }); return response({ groups }); }
     if (u.pathname.startsWith('/api/groups/')) { const entry = groups.find(g => g.name === decodeURIComponent(u.pathname.slice(12))); if (method === 'PUT') Object.assign(entry, body); if (method === 'DELETE') groups.splice(groups.indexOf(entry), 1); return response({ groups }); }
     if (u.pathname === '/api/clients') { if (method === 'POST') clients.push({ ...body, id: clients.length + 1 }); return response({ clients }); }
-    if (u.pathname.startsWith('/api/clients/')) { const identifier = decodeURIComponent(u.pathname.slice(13)), client = clients.find(c => c.client === identifier); if (method === 'PUT') Object.assign(client, body); return response({ clients: clients.filter(c => c.client === identifier) }); }
+    if (u.pathname.startsWith('/api/clients/')) { const identifier = decodeURIComponent(u.pathname.slice(13)), client = clients.find(c => c.client === identifier); if (method === 'PUT' && client) Object.assign(client, body); if (method === 'DELETE' && client) clients.splice(clients.indexOf(client), 1); return response({ clients: clients.filter(c => c.client === identifier) }); }
+    if (u.pathname.startsWith('/api/lists/')) { const address = decodeURIComponent(u.pathname.slice('/api/lists/'.length)), list = lists.find(l => l.address === address && l.type === u.searchParams.get('type')); if (method === 'PUT' && list) Object.assign(list, body); if (method === 'DELETE' && list) lists.splice(lists.indexOf(list), 1); return response({ lists }); }
     if (u.pathname === '/api/lists') {
       if (method === 'POST')
-        lists.push({ ...body, id: lists.length + 1, type: 'block', number: 0 });
+        lists.push({ ...body, id: lists.length + 1, type: u.searchParams.get('type') ?? 'block', number: 0 });
       return response({ lists });
     }
     if (u.pathname === '/api/info/version')

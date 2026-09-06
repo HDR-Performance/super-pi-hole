@@ -274,16 +274,19 @@ export function Choice({
   value,
   options,
   onChange,
+  disabled = false,
 }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <Field label={label}>
       <Select
         value={value}
+        disabled={disabled}
         onValueChange={(v) => {
           if (v !== null) onChange(v);
         }}

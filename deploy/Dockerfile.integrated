@@ -25,7 +25,7 @@ RUN apk add --no-cache nodejs bash bash-completion bind-tools binutils coreutils
 LABEL org.opencontainers.image.title="Super Pi Hole" \
       org.opencontainers.image.description="Integrated, source-pinned Pi-hole DNS and Super Pi Hole controller" \
       org.opencontainers.image.licenses="MIT AND EUPL-1.2 AND GPL-2.0-or-later" \
-      org.opencontainers.image.version="0.3.0-test" \
+      org.opencontainers.image.version="0.4.1-test" \
       org.opencontainers.image.source="https://github.com/HDR-Performance/super-pi-hole"
 COPY vendor/pi-hole/core /etc/.pihole
 COPY vendor/pi-hole/web /var/www/html/admin

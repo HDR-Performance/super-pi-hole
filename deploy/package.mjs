@@ -14,10 +14,10 @@ mkdirSync(target, { recursive: true });
 // Explicit allowlist: no home database, browser data, .env, personal docs, or source credentials.
 const paths = [
   'standalone-dist', 'server/runtime.mjs', 'server/review-service.mjs', 'server/pihole-service.mjs', 'server/stock-interface.mjs', 'server/migrations',
-  'lib/network-policy.ts', 'lib/parental-policy.ts', 'lib/countries.ts',
-  'config/blocklist-presets.json',
+  'lib/network-policy.ts', 'lib/parental-policy.ts', 'lib/countries.ts', 'lib/blocking-control.mjs', 'lib/engine-settings.mjs', 'server/engine-features.mjs',
+  'config/blocklist-presets.json', 'lib/family-dns.mjs', 'server/family-engine.mjs', 'server/family-service.mjs', 'docs/FAMILY-NETWORK-FEATURES.md',
   'deploy/truenas.yaml', 'deploy/init-data.mjs', 'deploy/healthcheck.mjs', 'deploy/verify-bundle.mjs',
-  'tools/upgrade-plan.mjs', 'README.md', 'DEPLOYMENT.md', 'UPGRADING.md', 'SECURITY.md', 'THIRD-PARTY-NOTICES.md', 'LICENSE', 'vendor-notices',
+  'tools/upgrade-plan.mjs', 'README.md', 'docs/FEATURE-PARITY.md', 'config/upstream-lock.json', 'DEPLOYMENT.md', 'UPGRADING.md', 'SECURITY.md', 'THIRD-PARTY-NOTICES.md', 'LICENSE', 'vendor-notices',
 ];
 for (const path of paths) { mkdirSync(dirname(join(target, path)), { recursive: true }); cpSync(join(root, path), join(target, path), { recursive: true, errorOnExist: true, force: false }); }
 collectLicenses(join(target, 'third-party-licenses'), root);

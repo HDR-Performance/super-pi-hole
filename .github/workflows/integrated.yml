@@ -1,15 +1,20 @@
 name: Integrated DNS release
 on:
-  push:
-    branches: ['release/integrated-0.3']
-    tags: ['v0.3.*']
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a new immutable test release after all integrated checks pass
+        type: boolean
+        default: false
 permissions:
   contents: read
+concurrency:
+  group: integrated-release
+  cancel-in-progress: false
 jobs:
   integrated:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
     permissions:
       contents: write
       packages: write
@@ -19,29 +24,33 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Check release target is new
+        if: inputs.publish
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          VERSION=$(node -p 'require("./package.json").version')
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-test$ ]]
+          if git ls-remote --exit-code origin "refs/tags/v$VERSION"; then
+            echo "Refusing to replace an existing tag"; exit 1
+          fi
+          test -f "docs/RELEASE-${VERSION%-test}.md"
       - run: npm ci && node tools/verify-upstream.mjs && npm test && npx tsc --noEmit
       - run: docker build -f deploy/Dockerfile.integrated -t super-pi-hole:ci .
-      - run: docker compose -f deploy/truenas-upgrade.yaml config --quiet
+      - run: docker compose -f deploy/truenas-upgrade.yaml config --quiet && docker compose -f deploy/truenas-existing-app.yaml config --quiet
       - run: bash deploy/smoke-integrated.sh super-pi-hole:ci
-      - name: Publish tested integrated image
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish tested integrated image and immutable release
+        if: inputs.publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION=$(node -p 'require("./package.json").version')
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker tag super-pi-hole:ci "ghcr.io/hdr-performance/super-pi-hole:$VERSION"
           docker push "ghcr.io/hdr-performance/super-pi-hole:$VERSION"
           docker image inspect "ghcr.io/hdr-performance/super-pi-hole:$VERSION" --format '{{index .RepoDigests 0}}' > image-digest.txt
-          node --input-type=module -e '
-            import fs from "node:fs";
-            const digest = fs.readFileSync("image-digest.txt", "utf8").trim();
-            if (!/^ghcr\.io\/hdr-performance\/super-pi-hole@sha256:[a-f0-9]{64}$/.test(digest)) throw new Error("Invalid published digest");
-            const yaml = fs.readFileSync("deploy/truenas-upgrade.yaml", "utf8");
-            const image = `ghcr.io/hdr-performance/super-pi-hole:${process.env.GITHUB_REF_NAME.slice(1)}`;
-            if (yaml.split(image).length !== 4) throw new Error("Expected three pinned services");
-            fs.writeFileSync("super-pi-hole-truenas-upgrade.yaml", yaml.replaceAll(image, digest));'
+          node deploy/release-assets.mjs
           docker compose -f super-pi-hole-truenas-upgrade.yaml config --quiet
-          sha256sum super-pi-hole-truenas-upgrade.yaml image-digest.txt > SHA256SUMS.txt
-          gh release create "$GITHUB_REF_NAME" --verify-tag --prerelease --title "Super Pi Hole $VERSION — integrated DNS" \
-            --notes-file docs/RELEASE-0.3.0.md super-pi-hole-truenas-upgrade.yaml image-digest.txt SHA256SUMS.txt
+          docker compose -f super-pi-hole-existing-app-upgrade.yaml config --quiet
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/v$VERSION" -f "sha=$GITHUB_SHA"
+          gh release create "v$VERSION" --verify-tag --prerelease --title "Super Pi Hole $VERSION — live family DNS and Pi-hole controls" \
+            --notes-file "docs/RELEASE-${VERSION%-test}.md" super-pi-hole-existing-app-upgrade.yaml super-pi-hole-truenas-upgrade.yaml image-digest.txt SHA256SUMS.txt

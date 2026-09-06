@@ -4,11 +4,18 @@ An independent, self-hosted distribution of **Pi-hole v6** with a custom
 controller, device center, and family-policy design workspace. The complete
 pinned upstream sources are public under `vendor/`, with original licenses.
 
-**0.3.0-test is an integrated test release, not a production security appliance.**
+**0.4.1-test is an integrated test release, not a production security appliance.**
 It includes a source-built DNS engine. Upgrade instructions and rollback are in
 [Integrated TrueNAS upgrade](docs/INTEGRATED-UPGRADE.md). Only use published
 release artifacts whose integrated-container tests passed.
 Pi-hole, TrueNAS, TP-Link, NETGEAR, and Ubiquiti do not sponsor or endorse it.
+
+The official, pinned Pi-hole sources are the compatibility baseline. See the
+[feature-parity register](docs/FEATURE-PARITY.md) for the new development controls,
+intentional deployment boundaries, remaining gaps and required release tests.
+**0.4.1-test adds the editors, history explorer and live family controller.
+The older 0.3.0-test image does not contain those features.** See the
+[twelve-feature family/network checklist](docs/FAMILY-NETWORK-FEATURES.md).
 
 ## What works
 
@@ -17,17 +24,21 @@ Pi-hole, TrueNAS, TP-Link, NETGEAR, and Ubiquiti do not sponsor or endorse it.
 | Live DNS statistics, top clients/domains, upstream performance | Pi-hole v6 API connector |
 | Query/client timelines, query-type and upstream donuts | Live data; selectable series, 1/6/24-hour chart windows, query drill-down and optional refresh |
 | Query log, domain/client/result filters, older-query pagination | Live, up to 100 requests per page |
-| Enable blocking and timed pauses | Live; server unlock and per-action confirmation required |
-| Exact and regex allow/deny rules with explicit Pi-hole groups | Live add/remove; not a per-device rule unless Pi-hole group assignments make it so |
+| Resume blocking, timed and indefinite pauses | Live; short presets, custom 1-second-to-24-hour durations and countdown; confirmed actions, engine-owned timer |
+| Exact and regex allow/deny rules with explicit Pi-hole groups | Live add/remove and editing of enabled state, action, comments and groups |
 | Local A/AAAA host records | Live add/remove of one record at a time |
 | Observed device inventory, manual IP/MAC selection, history and groups | Live five-second inventory; real group assignment with stale-edit protection |
 | Lists, groups, configured client assignments | Live management in Super Pi Hole; no default policies overwrite existing settings |
 | Windows/Microsoft and LG webOS privacy packs | Opt-in HaGeZi subscriptions with explicit Pi-hole groups and confirmation; refresh Gravity in Advanced Pi-hole afterwards |
-| DNS, DHCP, DNSSEC, NTP, resolver and database settings | Advanced JSON editor submits changed fields only; listener/auth/filesystem settings are deployment-managed |
+| DNS, DHCP, DNSSEC, NTP, resolver, privacy and database settings | Typed controls using engine metadata; advanced JSON retains the same safety checks |
+| Stored DNS history, diagnostics, list search and live logs | Connected views; see the parity register for acceptance status |
 | Gravity refresh | Live job with bounded output; no application-code update |
 | Original Pi-hole interface | Read-only through authenticated Super Pi Hole in integrated mode |
 | Administrator login and persistent app configuration | Standalone Node runtime; local SQLite and session cookies |
-| Country selection, parental controls, schedules, category presets | **Saved policy simulations only; no live enforcement** |
+| Optional local no-login mode | Explicit deployment switch; existing-app template enables it and warns that every client reaching port 20721 receives administrative access |
+| Group-based social switches, website schedules and family DNS pause | Live native group rules; opt-in, DNS-only, subject to allowlist precedence and bypasses |
+| Family notifications and retention | Detail 0–30 days and daily operation counts up to 365 days; not bandwidth history |
+| Country selection, parental categories and SafeSearch review | **Saved policy simulations only; no live enforcement** |
 | Blocklist catalog and pasted-list validator | Proposed presets and validation; no automatic feed ingestion |
 | Connection/IP traffic history, bandwidth per device, gateway country blocking | **Not implemented**; requires gateway telemetry or a passive sensor |
 
@@ -36,12 +47,44 @@ using a shared device, application processes, full HTTPS URLs, messages, or
 traffic that bypasses its resolver. Unknown destinations and foreign IPs are
 not proof of spying.
 
+### DNS blocking controls
+
+Open **Live Pi-hole → Dashboard → DNS blocking**. Choose a pause duration and
+confirm the change, or select **Indefinitely (until resumed)** to leave blocking
+off. **Resume blocking** immediately re-enables the existing rules and cancels
+the timer. Timed pauses are handled by the DNS engine, not a browser timer, so
+closing the page does not cancel automatic resumption. The on-screen countdown
+is approximate; the interface reads the engine again when it expires.
+
+This is a network-wide pause for clients using this resolver, not a device's
+Internet-access pause. Saved rules, lists and assignments are not deleted. The
+older 0.3.0-test interface uses different labels; upgrade to 0.4.1-test for the
+clearer controls described above.
+
 ## Upgrade an existing Pi-hole
 
 The default `Dockerfile` and [TrueNAS upgrade YAML](deploy/truenas-upgrade.yaml)
 build/run the integrated distribution. Three services (backup, DNS, GUI) use the
 same reviewed GHCR image; no upstream Pi-hole image is pulled at runtime. Existing
 configuration and dnsmasq directories are retained after a verified backup.
+
+For the already-integrated one-app installation retaining the external volume
+`ix-super-pi-hole_super-pi-hole-data`, use the release's
+**super-pi-hole-existing-app-upgrade.yaml** instead. It preserves that actual
+GUI data volume; do not substitute an empty dataset. Take a TrueNAS snapshot
+before applying it. Its documented local-only option disables both the original
+Pi-hole password and the Super Pi Hole login.
+
+### Balanced means protection, not a social-media ban
+
+Balanced uses HaGeZi Normal plus Threat Intelligence Feeds Medium to target
+known threats, advertising and tracking, while leaving social platforms and
+YouTube available. Whole-platform, adult-content, gambling and stricter
+device-telemetry packs are separate opt-ins. No DNS feed catches every threat;
+false positives remain possible. See the [upstream list scopes](https://github.com/hagezi/dns-blocklists).
+Choosing a catalog preset does not delete existing native blocks, install
+blanket allowlists, or silently enable subscriptions. Review existing rules
+and apply the chosen list subscriptions explicitly.
 
 Use a versioned release and its image digest. Never run two engines on the same
 port or data. The currently supported upgrade baseline is Pi-hole core 6.4.1,
@@ -98,6 +141,9 @@ is for fabricated test data only and must never be used for an installation.
   temporarily. Pi-hole's own privacy and retention settings still apply.
 - Never expose this test interface directly to the Internet. Use a trusted
   management LAN and HTTPS for ongoing use. Plain HTTP does not encrypt passwords.
+- `SUPER_PIHOLE_AUTH_DISABLED=true` removes the GUI sign-in but not same-origin
+  request checks. It grants administration to every device that can reach the
+  management port and must never be used on an untrusted or forwarded network.
 - Pi-hole credentials stay server-side. Use its application password when
   possible; some write/config operations need additional Pi-hole permission.
 - The API has a fixed configured upstream and explicit operation allowlists,

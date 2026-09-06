@@ -1,5 +1,6 @@
 'use client';
 import './engine-controls.css';
+import './family-controls.css';
 import {
   Shield,
   Globe2,
@@ -48,7 +49,10 @@ import {
 import catalog from '@/config/blocklist-presets.json';
 import { LivePihole } from './live-pihole';
 import { LiveDevices } from './live-devices';
-import { EngineSettings } from './engine-settings';
+import { FamilyDnsControls, FamilyNotifications, type FamilyState } from './family-dns-controls';
+import { useData } from './live-pihole';
+import { useEffect, useState } from 'react';
+import { EngineWorkbench as EngineSettings } from './engine-workbench';
 import { useSession } from './session-gate';
 const navigation = [
   ['Live Pi-hole', Radio],
@@ -59,6 +63,7 @@ const navigation = [
   ['Schedules', CalendarClock],
   ['Blocklists', ListFilter],
   ['Activity', Activity],
+  ['Notifications', Bell],
   ['Advanced Pi-hole', Settings2],
 ] as const;
 function Console() {
@@ -67,6 +72,10 @@ function Console() {
     { state, section, setSection } = r;
   const { setOpenMobile } = useSidebar();
   const alerts = r.events.filter((e) => e.notification && !e.acknowledged);
+  const [familyTick, tickFamily] = useState(0);
+  const family = useData<FamilyState>('family/state', familyTick);
+  useEffect(() => { const timer = setInterval(() => { if (!document.hidden) tickFamily(n => n + 1); }, 5000); return () => clearInterval(timer); }, []);
+  const liveSection = ['Live Pi-hole', 'Devices', 'Advanced Pi-hole', 'Parental Controls', 'Schedules', 'Blocklists', 'Notifications'].includes(section);
   return (
     <>
       <Sidebar>
@@ -89,16 +98,17 @@ function Console() {
                   }}
                 >
                   <Icon />
-                  <span>{label}</span>
+                  <span>{label === 'Advanced Pi-hole' ? 'Settings & tools' : label}</span>
                   {label === 'Activity' && alerts.length > 0 && (
                     <span className="nc-count">{alerts.length}</span>
                   )}
+                  {label === 'Notifications' && !!family.data?.unread && <span className="nc-count">{family.data.unread}</span>}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
           <div className="nc-sidebar-note">
-            <span className="nc-status-dot" /> {session.mode === 'server-test' ? 'Server test · 0.3.0' : 'Local review build'}
+            <span className="nc-status-dot" /> {session.mode === 'server-test' ? 'Server test · 0.4.1' : 'Local review build'}
             <small>Live DNS and policy review are separate</small>
           </div>
         </SidebarContent>
@@ -107,27 +117,27 @@ function Console() {
         <header className="topbar">
           <SidebarTrigger />
           <span className="nc-top-title">Home network</span>
-          <span className="badge amber">{['Live Pi-hole', 'Devices', 'Advanced Pi-hole'].includes(section) ? 'Live DNS' : 'Policy simulator'}</span>
-          {session.mode === 'server-test' && <Button variant="ghost" aria-label="Sign out" onClick={session.logout}><LogOut /></Button>}
+          <span className="badge amber">{liveSection ? 'Connected DNS controls' : 'Policy simulator'}</span>
+          {session.mode === 'server-test' && !session.authDisabled && <Button variant="ghost" aria-label="Sign out" onClick={session.logout}><LogOut /></Button>}
           <Button
             variant="ghost"
-            aria-label={`Notifications: ${alerts.length} unread`}
-            onClick={() => setSection('Activity')}
+            aria-label={`Notifications: ${family.data?.unread ?? 0} unread`}
+            onClick={() => setSection('Notifications')}
           >
             <Bell />
-            {alerts.length > 0 && alerts.length}
+            {!!family.data?.unread && family.data.unread}
           </Button>
           <Button
             disabled={!r.ready || r.busy || !r.dirty}
             onClick={r.saveClick}
           >
             <Save />
-            {r.busy ? 'Working…' : r.dirty ? 'Save changes' : 'Saved locally'}
+            {r.busy ? 'Saving simulator…' : r.dirty ? 'Save simulator changes' : 'Simulator saved'}
           </Button>
         </header>
         <main className="workspace nc-workspace">
           {session.synthetic && <div className="nc-review-strip"><FlaskConical /><strong>Synthetic test server. All DNS clients, queries, and live-control actions on this page are fabricated test data.</strong></div>}
-          {!['Live Pi-hole', 'Devices', 'Advanced Pi-hole'].includes(section) && <div className="nc-review-strip">
+          {!liveSection && <div className="nc-review-strip">
             <FlaskConical />
             <span>
               Policy review: these custom settings and synthetic tests do not control
@@ -155,11 +165,20 @@ function Console() {
               )}
             </div>
           )}
-          {section === 'Live Pi-hole' ? <LivePihole /> : section === 'Devices' ? <LiveDevices /> : section === 'Advanced Pi-hole' ? <EngineSettings /> : !r.ready ? (
+          {section === 'Live Pi-hole' ? <LivePihole /> : section === 'Devices' ? <LiveDevices /> : section === 'Advanced Pi-hole' ? <EngineSettings /> : section === 'Notifications' ? <FamilyNotifications /> : section === 'Parental Controls' ? <>
+            <FamilyDnsControls view="parental" />
+            {r.ready && <details className="panel"><summary>Separate parental policy simulator · does not control DNS</summary><ParentalControls value={state.parental} devices={state.devices} timezone={state.settings.timezone} onChange={parental => r.change({ ...state, parental })} onSave={async () => { await r.save(); }} /></details>}
+          </> : section === 'Schedules' ? <>
+            <FamilyDnsControls view="schedules" />
+            {r.ready && <details className="panel"><summary>Separate schedule simulator · does not control DNS</summary><SchedulesPanel /></details>}
+          </> : section === 'Blocklists' ? <>
+            <FamilyDnsControls view="blocklists" />
+            {r.ready && <details className="panel"><summary>Curated list research and policy simulator · does not control DNS</summary><BlocklistsPanel /></details>}
+          </> : !r.ready ? (
             <section className="panel">
               <h1>Connecting to the local review service</h1>
               <p>
-                Review settings stay in this app's database. Loading them does not change live DNS.
+                Review settings stay in this app’s database. Loading them does not change live DNS.
               </p>
             </section>
           ) : (
