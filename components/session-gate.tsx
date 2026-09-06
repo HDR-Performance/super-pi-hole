@@ -4,13 +4,13 @@ import { Shield, LockKeyhole } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 
-type Session = { authenticated: boolean; mode: 'local-review' | 'server-test'; insecureTransport?: boolean; synthetic?: boolean };
+type Session = { authenticated: boolean; authDisabled?: boolean; mode: 'local-review' | 'server-test'; insecureTransport?: boolean; synthetic?: boolean };
 function parseSession(value: unknown): Session {
   const data = value as Partial<Session> | null;
   if (!data || typeof data.authenticated !== 'boolean' || !['server-test', 'local-review'].includes(data.mode ?? '')) throw Error('The server returned an invalid session response.');
   return data as Session;
 }
-const SessionContext = createContext<{ mode: Session['mode']; synthetic?: boolean; logout: () => Promise<void> }>({ mode: 'local-review', logout: async () => {} });
+const SessionContext = createContext<{ mode: Session['mode']; synthetic?: boolean; authDisabled?: boolean; logout: () => Promise<void> }>({ mode: 'local-review', logout: async () => {} });
 export const useSession = () => useContext(SessionContext);
 export function SessionGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null), [password, setPassword] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
@@ -36,7 +36,7 @@ export function SessionGate({ children }: { children: ReactNode }) {
       setSession(s => s ? { ...s, authenticated: false } : s);
     } catch { setError('Sign-out failed. Please retry or close this browser session.'); }
   }
-  if (session?.authenticated) return <SessionContext.Provider value={{ mode: session.mode, synthetic: session.synthetic, logout }}>{error && <p role="alert" className="pc-error">{error}</p>}{children}</SessionContext.Provider>;
+  if (session?.authenticated) return <SessionContext.Provider value={{ mode: session.mode, synthetic: session.synthetic, authDisabled: session.authDisabled, logout }}>{session.authDisabled && <p role="status" className="pc-error">Local no-login mode is enabled. Every device that can reach this management page can view DNS activity and change filtering.</p>}{error && <p role="alert" className="pc-error">{error}</p>}{children}</SessionContext.Provider>;
   return <main className="sph-login"><section className="panel sph-login-card">
     <Shield size={36} /><p className="eyebrow">SUPER PI HOLE</p><h1>{session?.synthetic === true ? 'Local simulated preview' : 'Network administrator'}</h1>
     {session?.synthetic === true

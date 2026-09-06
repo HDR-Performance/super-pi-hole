@@ -66,19 +66,23 @@ function useFamily() {
   }, []);
   return { ...result, refresh: () => refresh((n) => n + 1) };
 }
-export function FamilyDnsControls() {
+type FamilyView = 'parental' | 'schedules' | 'blocklists';
+const viewCopy: Record<FamilyView, { eyebrow: string; title: string; description: string }> = {
+  parental: { eyebrow: 'CONNECTED DNS CONTROLS', title: 'Family & social controls', description: 'Register a Pi-hole group, assign devices, and apply its family policy.' },
+  schedules: { eyebrow: 'LIVE DNS SCHEDULES', title: 'Family website schedules', description: 'Choose a registered family group, then create live weekday and time-window rules.' },
+  blocklists: { eyebrow: 'FAMILY DNS FILTERS', title: 'Family platform blocks', description: 'Choose a registered family group, then switch individual social platforms on or off.' },
+};
+export function FamilyDnsControls({ view = 'parental' }: { view?: FamilyView }) {
   const family = useFamily();
   const inventory = useData<Inventory>('devices', family.data?.revision ?? 0);
+  const copy = viewCopy[view];
   return (
     <section className="sph-family-live">
       <div className="section-head">
         <div>
-          <p className="eyebrow">CONNECTED DNS CONTROLS</p>
-          <h1>Family & social controls</h1>
-          <p>
-            One profile per Pi-hole group. Shared here, in Schedules and in
-            Blocklists.
-          </p>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
+          <p>{copy.description}</p>
         </div>
         <Button variant="outline" onClick={family.refresh}>
           Refresh status
@@ -95,6 +99,7 @@ export function FamilyDnsControls() {
           value={family.data}
           inventory={inventory.data}
           refresh={family.refresh}
+          view={view}
         />
       ) : (
         <p>Loading saved controls and connected groups…</p>
@@ -106,10 +111,12 @@ function FamilyEditor({
   value,
   inventory,
   refresh,
+  view,
 }: {
   value: FamilyState;
   inventory: Inventory;
   refresh: () => void;
+  view: FamilyView;
 }) {
   const [draft, setDraft] = useState(value.config),
     [selected, setSelected] = useState(value.config.profiles[0]?.groupId ?? -1);
@@ -334,10 +341,16 @@ function FamilyEditor({
             Register group
           </Button>
         </div>
+        {!draft.profiles.length && !inventory.groups.some((g) => g.id > 0 && g.enabled) && (
+          <p className="pc-error" role="status">
+            No dedicated Pi-hole group exists yet. Open Live Pi-hole → Groups,
+            create a group such as “Family”, return here, and press Refresh status.
+          </p>
+        )}
       </section>
       {profile && (
         <>
-          <section className="panel">
+          {view === 'parental' && <section className="panel">
             <div className="section-head">
               <h2>{profile.name}</h2>
               <Button
@@ -427,8 +440,8 @@ function FamilyEditor({
             {!inventory.clients.some((c) =>
               c.groups.includes(profile.groupId),
             ) && <p>No explicitly assigned clients in this group yet.</p>}
-          </section>
-          <section className="panel">
+          </section>}
+          {view !== 'schedules' && <section className="panel">
             <div className="section-head">
               <h2>Social platforms</h2>
               <Button
@@ -490,8 +503,8 @@ function FamilyEditor({
                 </article>
               ))}
             </div>
-          </section>
-          <section className="panel">
+          </section>}
+          {view !== 'blocklists' && <section className="panel">
             <div className="section-head">
               <h2>Website & platform schedules</h2>
               <Button
@@ -548,8 +561,8 @@ function FamilyEditor({
             {!profile.schedules.length && (
               <p>No live schedules for this group.</p>
             )}
-          </section>
-          {history && (
+          </section>}
+          {view === 'parental' && history && (
             <QueryLog
               key={history}
               revision={value.revision}
@@ -581,7 +594,7 @@ function FamilyEditor({
           )}
         </>
       )}
-      <section className="panel">
+      {view === 'parental' && <section className="panel">
         <h2>Privacy & retention</h2>
         <label>
           Family notification detail retention (0–30 days)
@@ -603,7 +616,7 @@ function FamilyEditor({
           query retention under Settings & tools. Traffic-byte history is
           unavailable without a gateway collector.
         </p>
-      </section>
+      </section>}
     </>
   );
 }

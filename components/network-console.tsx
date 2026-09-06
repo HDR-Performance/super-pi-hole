@@ -108,7 +108,7 @@ function Console() {
             ))}
           </SidebarMenu>
           <div className="nc-sidebar-note">
-            <span className="nc-status-dot" /> {session.mode === 'server-test' ? 'Server test · 0.4.0' : 'Local review build'}
+            <span className="nc-status-dot" /> {session.mode === 'server-test' ? 'Server test · 0.4.1' : 'Local review build'}
             <small>Live DNS and policy review are separate</small>
           </div>
         </SidebarContent>
@@ -118,7 +118,7 @@ function Console() {
           <SidebarTrigger />
           <span className="nc-top-title">Home network</span>
           <span className="badge amber">{liveSection ? 'Connected DNS controls' : 'Policy simulator'}</span>
-          {session.mode === 'server-test' && <Button variant="ghost" aria-label="Sign out" onClick={session.logout}><LogOut /></Button>}
+          {session.mode === 'server-test' && !session.authDisabled && <Button variant="ghost" aria-label="Sign out" onClick={session.logout}><LogOut /></Button>}
           <Button
             variant="ghost"
             aria-label={`Notifications: ${family.data?.unread ?? 0} unread`}
@@ -165,13 +165,15 @@ function Console() {
               )}
             </div>
           )}
-          {section === 'Live Pi-hole' ? <LivePihole /> : section === 'Devices' ? <LiveDevices /> : section === 'Advanced Pi-hole' ? <EngineSettings /> : section === 'Notifications' ? <FamilyNotifications /> : ['Parental Controls', 'Schedules', 'Blocklists'].includes(section) ? <>
-            <FamilyDnsControls />
-            {r.ready && <details className="panel"><summary>Separate policy simulator / blocklist research · does not control DNS</summary>
-              {section === 'Parental Controls' && <ParentalControls value={state.parental} devices={state.devices} timezone={state.settings.timezone} onChange={parental => r.change({ ...state, parental })} onSave={async () => { await r.save(); }} />}
-              {section === 'Schedules' && <SchedulesPanel />}
-              {section === 'Blocklists' && <BlocklistsPanel />}
-            </details>}
+          {section === 'Live Pi-hole' ? <LivePihole /> : section === 'Devices' ? <LiveDevices /> : section === 'Advanced Pi-hole' ? <EngineSettings /> : section === 'Notifications' ? <FamilyNotifications /> : section === 'Parental Controls' ? <>
+            <FamilyDnsControls view="parental" />
+            {r.ready && <details className="panel"><summary>Separate parental policy simulator · does not control DNS</summary><ParentalControls value={state.parental} devices={state.devices} timezone={state.settings.timezone} onChange={parental => r.change({ ...state, parental })} onSave={async () => { await r.save(); }} /></details>}
+          </> : section === 'Schedules' ? <>
+            <FamilyDnsControls view="schedules" />
+            {r.ready && <details className="panel"><summary>Separate schedule simulator · does not control DNS</summary><SchedulesPanel /></details>}
+          </> : section === 'Blocklists' ? <>
+            <FamilyDnsControls view="blocklists" />
+            {r.ready && <details className="panel"><summary>Curated list research and policy simulator · does not control DNS</summary><BlocklistsPanel /></details>}
           </> : !r.ready ? (
             <section className="panel">
               <h1>Connecting to the local review service</h1>

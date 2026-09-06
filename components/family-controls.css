@@ -7,6 +7,20 @@
 .sph-family-master label {
   margin: 0;
 }
+.sph-family-live .sph-actions > label {
+  display: grid;
+  gap: 0.4rem;
+}
+.sph-family-live select,
+.sph-family-live input:not([type='checkbox']),
+.sph-family-live textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--background);
+  color: var(--foreground);
+}
 .sph-family-master small,
 .sph-notification small {
   display: block;
