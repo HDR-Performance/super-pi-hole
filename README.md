@@ -4,7 +4,7 @@ An independent, self-hosted distribution of **Pi-hole v6** with a custom
 controller, device center, and family-policy design workspace. The complete
 pinned upstream sources are public under `vendor/`, with original licenses.
 
-**0.4.0-test is an integrated test release, not a production security appliance.**
+**0.4.1-test is an integrated test release, not a production security appliance.**
 It includes a source-built DNS engine. Upgrade instructions and rollback are in
 [Integrated TrueNAS upgrade](docs/INTEGRATED-UPGRADE.md). Only use published
 release artifacts whose integrated-container tests passed.
@@ -13,7 +13,7 @@ Pi-hole, TrueNAS, TP-Link, NETGEAR, and Ubiquiti do not sponsor or endorse it.
 The official, pinned Pi-hole sources are the compatibility baseline. See the
 [feature-parity register](docs/FEATURE-PARITY.md) for the new development controls,
 intentional deployment boundaries, remaining gaps and required release tests.
-**0.4.0-test adds the editors, history explorer and live family controller.
+**0.4.1-test adds the editors, history explorer and live family controller.
 The older 0.3.0-test image does not contain those features.** See the
 [twelve-feature family/network checklist](docs/FAMILY-NETWORK-FEATURES.md).
 
@@ -35,6 +35,7 @@ The older 0.3.0-test image does not contain those features.** See the
 | Gravity refresh | Live job with bounded output; no application-code update |
 | Original Pi-hole interface | Read-only through authenticated Super Pi Hole in integrated mode |
 | Administrator login and persistent app configuration | Standalone Node runtime; local SQLite and session cookies |
+| Optional local no-login mode | Explicit deployment switch; existing-app template enables it and warns that every client reaching port 20721 receives administrative access |
 | Group-based social switches, website schedules and family DNS pause | Live native group rules; opt-in, DNS-only, subject to allowlist precedence and bypasses |
 | Family notifications and retention | Detail 0–30 days and daily operation counts up to 365 days; not bandwidth history |
 | Country selection, parental categories and SafeSearch review | **Saved policy simulations only; no live enforcement** |
@@ -57,7 +58,7 @@ is approximate; the interface reads the engine again when it expires.
 
 This is a network-wide pause for clients using this resolver, not a device's
 Internet-access pause. Saved rules, lists and assignments are not deleted. The
-older 0.3.0-test interface uses different labels; upgrade to 0.4.0-test for the
+older 0.3.0-test interface uses different labels; upgrade to 0.4.1-test for the
 clearer controls described above.
 
 ## Upgrade an existing Pi-hole
@@ -70,8 +71,9 @@ configuration and dnsmasq directories are retained after a verified backup.
 For the already-integrated one-app installation retaining the external volume
 `ix-super-pi-hole_super-pi-hole-data`, use the release's
 **super-pi-hole-existing-app-upgrade.yaml** instead. It preserves that actual
-GUI data volume; do not substitute an empty dataset. Both applications are
-backed up before startup. Keep your existing passwords in the YAML.
+GUI data volume; do not substitute an empty dataset. Take a TrueNAS snapshot
+before applying it. Its documented local-only option disables both the original
+Pi-hole password and the Super Pi Hole login.
 
 ### Balanced means protection, not a social-media ban
 
@@ -139,6 +141,9 @@ is for fabricated test data only and must never be used for an installation.
   temporarily. Pi-hole's own privacy and retention settings still apply.
 - Never expose this test interface directly to the Internet. Use a trusted
   management LAN and HTTPS for ongoing use. Plain HTTP does not encrypt passwords.
+- `SUPER_PIHOLE_AUTH_DISABLED=true` removes the GUI sign-in but not same-origin
+  request checks. It grants administration to every device that can reach the
+  management port and must never be used on an untrusted or forwarded network.
 - Pi-hole credentials stay server-side. Use its application password when
   possible; some write/config operations need additional Pi-hole permission.
 - The API has a fixed configured upstream and explicit operation allowlists,
