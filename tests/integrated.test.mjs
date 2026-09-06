@@ -33,16 +33,20 @@ test('upgrade backup includes existing controller database and WAL files', () =>
   for (const file of ['review.sqlite', 'review.sqlite-wal', 'review.sqlite.family.sqlite']) assert.equal(readFileSync(join(result.target, 'super-pi-hole-data', file), 'utf8'), 'existing ' + file);
   assert.throws(() => backupUpgrade({ config, dnsmasq, appData, destination: join(appData, 'backups') }), /outside/);
 });
-test('existing-app template retains the deployed external data volume and main UI portal', () => {
+test('existing-app template retains data and explicitly offers local password-free mode', () => {
   const config = load(readFileSync(new URL('../deploy/truenas-existing-app.yaml', import.meta.url), 'utf8'));
   assert.equal(config.volumes['super-pi-hole-data'].external, true);
   assert.equal(config.volumes['super-pi-hole-data'].name, 'ix-super-pi-hole_super-pi-hole-data');
-  assert.equal(config.services.backup.environment.EXISTING_SUPER_DATA_REQUIRED, 'true');
-  assert.equal(config.services['super-pi-hole'].environment.SUPER_PIHOLE_PASSWORD, config.services.backup.environment.SUPER_PIHOLE_PASSWORD);
+  assert.equal(config.services.backup, undefined);
+  assert.equal(config.services.pihole.depends_on, undefined);
+  assert.equal(config.services.pihole.environment.FTLCONF_webserver_api_password, '');
+  assert.equal(config.services['super-pi-hole'].environment.SUPER_PIHOLE_AUTH_DISABLED, 'true');
+  assert.equal(config.services['super-pi-hole'].environment.SUPER_PIHOLE_PASSWORD, undefined);
+  assert.equal(config.services['super-pi-hole'].environment.PIHOLE_PASSWORD, '');
   assert.deepEqual(config.services['super-pi-hole'].volumes, ['super-pi-hole-data:/data']);
   assert.equal(config['x-portals'][0].path, '/');
   assert.equal(config['x-portals'][0].port, 20721);
-  for (const service of Object.values(config.services)) assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:0.4.0-test');
+  for (const service of Object.values(config.services)) assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:0.4.1-test');
 });
 test('stock interface cannot write to the engine or point to a remote host', async () => {
   let forwarded = 0;
@@ -54,7 +58,7 @@ test('stock interface cannot write to the engine or point to a remote host', asy
 test('integrated YAML pins our image, backs up read-only, and preserves both original mounts', () => {
   const config = load(readFileSync(new URL('../deploy/truenas-upgrade.yaml', import.meta.url), 'utf8'));
   for (const service of Object.values(config.services)) {
-    assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:0.4.0-test');
+    assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:0.4.1-test');
     assert.equal(service.network_mode, 'host');
     assert.equal(service.build, undefined);
   }

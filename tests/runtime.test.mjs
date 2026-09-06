@@ -31,6 +31,18 @@ test('server rejects missing or placeholder administrator credentials at startup
   for (const password of ['', 'short', 'CHANGE_ME_TO_A_LONG_PASSWORD']) assert.throws(() => createRuntime({ publicOrigin: 'http://localhost:8080', password }));
 });
 
+test('explicit local no-login mode starts without a GUI password but keeps same-origin write checks', async t => {
+  const { call } = await fixture(t, { password: '', authDisabled: true });
+  const status = await (await call('/session-api/status')).json();
+  assert.equal(status.authenticated, true);
+  assert.equal(status.authDisabled, true);
+  assert.equal((await call('/live-api/overview')).status, 200);
+  const denied = await call('/live-api/action', { method: 'POST', headers: { Origin: 'http://evil.example', 'Content-Type': 'application/json', 'X-Super-Pihole-Review': '1' }, body: JSON.stringify({ action: 'blocking', blocking: false, timer: 10, confirmed: true }) });
+  assert.equal(denied.status, 403);
+  assert.equal((await call('/session-api/logout', { method: 'POST' })).status, 200);
+  assert.equal((await (await call('/session-api/status')).json()).authenticated, true);
+});
+
 test('preview identity is visible before login without changing installed authentication', async t => {
   const normal = await fixture(t);
   assert.equal((await (await normal.call('/session-api/status')).json()).synthetic, false);
