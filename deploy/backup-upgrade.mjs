@@ -10,7 +10,7 @@ function fileHash(path) {
   try { let count; while ((count = readSync(fd, buffer, 0, buffer.length, null))) hash.update(buffer.subarray(0, count)); } finally { closeSync(fd); }
   return hash.digest('hex');
 }
-export function backupUpgrade({ config, dnsmasq, appData, destination, version = '0.4.0-test' }) {
+export function backupUpgrade({ config, dnsmasq, appData, destination, version = '0.4.1-test' }) {
   const sources = [config, dnsmasq, ...(appData ? [appData] : [])];
   for (const dir of sources) if (!lstatSync(dir).isDirectory() || lstatSync(dir).isSymbolicLink()) throw Error('Backup source must be an existing real directory.');
   for (const file of ['pihole.toml', 'gravity.db']) if (!existsSync(join(config, file))) throw Error(`Missing ${file}: refusing an empty or unsupported migration.`);
@@ -52,7 +52,8 @@ async function requireFreeDnsPort() {
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const password = process.env.SUPER_PIHOLE_PASSWORD ?? '';
-  if (password.length < 16 || password.length > 256 || /CHANGE_ME|REPLACE_ME/.test(password)) throw Error('Set a unique Super Pi Hole password before upgrading. Nothing was changed.');
+  const authDisabled = process.env.SUPER_PIHOLE_AUTH_DISABLED === 'true';
+  if (!authDisabled && (password.length < 16 || password.length > 256 || /CHANGE_ME|REPLACE_ME/.test(password))) throw Error('Set a unique Super Pi Hole password or explicitly enable local no-login mode before upgrading. Nothing was changed.');
   await requireFreeDnsPort();
   mkdirSync('/data', { recursive: true });
   if (process.env.EXISTING_SUPER_DATA_REQUIRED === 'true' && !existsSync('/data/review.sqlite')) throw Error('Existing Super Pi Hole database is missing. Check the retained data volume; refusing an empty-settings upgrade.');
