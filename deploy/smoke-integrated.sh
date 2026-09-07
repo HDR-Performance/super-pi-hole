@@ -65,4 +65,12 @@ done
 test "$(docker exec sph-ci-dns dig +short @127.0.0.1 allowed.test)" = 192.0.2.42
 test "$(docker exec sph-ci-dns dig +short @127.0.0.1 blocked.test)" = 0.0.0.0
 test "$(docker exec sph-ci-dns dig +short @127.0.0.1 controller.test)" = 0.0.0.0
+# This isolated fixture shares the DNS container's network namespace. Reattach
+# the UI after Docker replaces that namespace; production uses host networking.
+docker restart sph-ci-ui >/dev/null
+for i in $(seq 1 30); do
+  if curl --fail --silent http://127.0.0.1:20721/healthz >/dev/null; then break; fi
+  sleep 1
+done
+curl --fail --silent http://127.0.0.1:20721/healthz
 echo 'Integrated DNS, existing rules, controller writes, stock write rejection, and restart persistence passed.'
