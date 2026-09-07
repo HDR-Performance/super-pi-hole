@@ -110,7 +110,8 @@ export function NetworkPolicyControls({ view }: { view: 'blocklists' | 'social' 
   const socialRule = (id: string) => {
     const service = socialServices.find((s) => s.id === id)!;
     const pattern = suffixPattern(service.domains);
-    return rules.find((r) => r.type === 'deny' && r.kind === 'regex' && r.domain === pattern);
+    return rules.find((r) => r.type === 'deny' && r.kind === 'regex' && r.comment === `${prefix}social:${id}`)
+      ?? rules.find((r) => r.type === 'deny' && r.kind === 'regex' && r.domain === pattern);
   };
   const setSocial = async (id: string, enabled: boolean) => {
     const service = socialServices.find((s) => s.id === id)!;
@@ -119,10 +120,11 @@ export function NetworkPolicyControls({ view }: { view: 'blocklists' | 'social' 
     await run(service.name, async () => {
       if (enabled) {
         if (existing && !existing.comment?.startsWith(prefix)) throw Error(`A matching ${service.name} rule already exists but is not owned by Super Pi Hole. Review it under Domain rules.`);
-        await act(existing ? { action: 'domain-edit', domain: pattern, type: 'deny', nextType: 'deny', kind: 'regex', enabled: true, groups: groupIds, comment: `${prefix}social:${id}`, expected: existing } : { action: 'domain-add', domain: pattern, type: 'deny', kind: 'regex', groups: groupIds, comment: `${prefix}social:${id}` });
+        await act(existing && existing.domain === pattern ? { action: 'domain-edit', domain: pattern, type: 'deny', nextType: 'deny', kind: 'regex', enabled: true, groups: groupIds, comment: `${prefix}social:${id}`, expected: existing } : { action: 'domain-add', domain: pattern, type: 'deny', kind: 'regex', groups: groupIds, comment: `${prefix}social:${id}` });
+        if (existing && existing.domain !== pattern) await act({ action: 'domain-delete', domain: existing.domain, type: 'deny', kind: 'regex' });
       } else if (existing) {
         if (!existing.comment?.startsWith(prefix)) throw Error(`The matching ${service.name} rule is not owned by Super Pi Hole and was left unchanged.`);
-        await act({ action: 'domain-delete', domain: pattern, type: 'deny', kind: 'regex' });
+        await act({ action: 'domain-delete', domain: existing.domain, type: 'deny', kind: 'regex' });
       }
     });
   };
