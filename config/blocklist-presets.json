@@ -47,6 +47,26 @@
       "exclusiveFamily": "base"
     },
     {
+      "id": "hagezi-pro-plus",
+      "name": "HaGeZi Pro++",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.plus.txt",
+      "format": "dns-abp",
+      "purpose": "Aggressive advertising, tracking and telemetry protection with a higher compatibility cost",
+      "project": "https://github.com/hagezi/dns-blocklists",
+      "declaredLicense": "GPL-3.0",
+      "exclusiveFamily": "base"
+    },
+    {
+      "id": "hagezi-ultimate",
+      "name": "HaGeZi Ultimate",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/ultimate.txt",
+      "format": "dns-abp",
+      "purpose": "Maximum DNS-level blocking for experienced administrators who can repair false positives",
+      "project": "https://github.com/hagezi/dns-blocklists",
+      "declaredLicense": "GPL-3.0",
+      "exclusiveFamily": "base"
+    },
+    {
       "id": "hagezi-tif-medium",
       "name": "HaGeZi Threat Intelligence Feeds Medium",
       "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.medium.txt",
@@ -127,6 +147,20 @@
       "scope": "opt-in profile or network",
       "sources": ["hagezi-pro", "hagezi-tif-medium"],
       "note": "Replaces the balanced base rather than stacking Normal and Pro."
+    },
+    {
+      "id": "aggressive",
+      "name": "Aggressive ad blocking",
+      "scope": "opt-in network baseline",
+      "sources": ["hagezi-pro-plus", "hagezi-tif-medium"],
+      "note": "Stronger DNS-level ad, tracker and telemetry blocking. Some apps, shopping links, games and smart-device features may need allow rules. Does not reliably remove YouTube in-stream ads."
+    },
+    {
+      "id": "maximum",
+      "name": "Maximum protection",
+      "scope": "expert opt-in network baseline",
+      "sources": ["hagezi-ultimate", "hagezi-tif-medium"],
+      "note": "Highest-breakage option for experienced administrators. Expect false positives and keep an admin device available for recovery. Does not reliably remove YouTube in-stream ads."
     },
     {
       "id": "compatibility",

@@ -3,7 +3,9 @@ WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN node tools/verify-upstream.mjs && npm test && npm run build:server && node deploy/licenses.mjs third-party-licenses
+RUN node tools/verify-upstream.mjs
+RUN npm run build:server
+RUN node deploy/licenses.mjs third-party-licenses
 
 FROM alpine:3.23.3@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659 AS ftl-build
 RUN apk add --no-cache build-base cmake bash git linux-headers pkgconf gmp-dev nettle-dev libidn2-dev libunistring-dev readline-dev xxd python3 py3-jinja2 py3-jsonschema
@@ -22,6 +24,8 @@ FROM alpine:3.23.3@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f
 RUN apk add --no-cache nodejs bash bash-completion bind-tools binutils coreutils curl git grep iproute2 jq libcap logrotate ncurses procps-ng psmisc shadow sudo tzdata unzip wget gmp nettle libidn2 libunistring mbedtls readline \
     && addgroup -g 1000 pihole && adduser -S -D -H -u 1000 -G pihole pihole \
     && addgroup -g 568 apps && adduser -S -D -H -u 568 -G apps apps
+COPY vendor/sources/macvendor.db /macvendor.db
+RUN echo '07ed21629e7bea992c1c0c84cf413e1e361e70da97d000e0467c54ffdbfa4bda  /macvendor.db' | sha256sum -c -
 LABEL org.opencontainers.image.title="Super Pi Hole" \
       org.opencontainers.image.description="Integrated, source-pinned Pi-hole DNS and Super Pi Hole controller" \
       org.opencontainers.image.licenses="MIT AND EUPL-1.2 AND GPL-2.0-or-later" \
@@ -51,7 +55,10 @@ COPY --from=build /src/vendor-notices ./vendor-notices
 COPY --from=build /src/vendor ./upstream-source
 COPY --from=build /src/LICENSE /src/THIRD-PARTY-NOTICES.md ./
 COPY deploy/pihole-controlled.sh /usr/local/bin/pihole
-RUN chmod +x /usr/local/bin/pihole /app/deploy/start-dns.sh
+RUN chmod -R a+rX /app /var/www/html/admin /etc/.pihole /opt/pihole \
+    && chown root:root /usr/local/bin/pihole /opt/pihole/pihole-upstream \
+    && chmod 755 /usr/local/bin/pihole /opt/pihole/pihole-upstream /app/deploy/start-dns.sh \
+    && test -x /usr/local/bin/pihole && test -x /opt/pihole/pihole-upstream
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=20721 DATA_DIR=/data STATIC_DIR=/app/standalone-dist
 USER 568:568
 EXPOSE 53/udp 53/tcp 20721/tcp

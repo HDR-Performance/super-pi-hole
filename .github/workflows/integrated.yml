@@ -36,8 +36,9 @@ jobs:
           test -f "docs/RELEASE-${VERSION%-test}.md"
       - run: npm ci && node tools/verify-upstream.mjs && npm test && npx tsc --noEmit
       - run: docker build -f deploy/Dockerfile.integrated -t super-pi-hole:ci .
-      - run: docker compose -f deploy/truenas-upgrade.yaml config --quiet && docker compose -f deploy/truenas-existing-app.yaml config --quiet
+      - run: docker compose -f deploy/truenas-fresh-all-in-one.yaml config --quiet && docker compose -f deploy/truenas-upgrade.yaml config --quiet && docker compose -f deploy/truenas-existing-app.yaml config --quiet
       - run: bash deploy/smoke-integrated.sh super-pi-hole:ci
+      - run: node deploy/check-web-assets.mjs http://127.0.0.1:20721
       - name: Publish tested integrated image and immutable release
         if: inputs.publish
         env:
@@ -52,5 +53,5 @@ jobs:
           docker compose -f super-pi-hole-truenas-upgrade.yaml config --quiet
           docker compose -f super-pi-hole-existing-app-upgrade.yaml config --quiet
           gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/v$VERSION" -f "sha=$GITHUB_SHA"
-          gh release create "v$VERSION" --verify-tag --prerelease --title "Super Pi Hole $VERSION — live family DNS and Pi-hole controls" \
-            --notes-file "docs/RELEASE-${VERSION%-test}.md" super-pi-hole-existing-app-upgrade.yaml super-pi-hole-truenas-upgrade.yaml image-digest.txt SHA256SUMS.txt
+          gh release create "v$VERSION" --verify-tag --prerelease --title "Super Pi Hole $VERSION — integrated DNS and optional Super Lan-Cache" \
+            --notes-file "docs/RELEASE-${VERSION%-test}.md" super-pi-hole-truenas-fresh.yaml super-pi-hole-existing-app-upgrade.yaml super-pi-hole-truenas-upgrade.yaml image-digest.txt SHA256SUMS.txt branding/icon.png branding/icon.svg

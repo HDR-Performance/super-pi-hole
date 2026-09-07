@@ -4,6 +4,8 @@ import { resolve } from 'node:path';
 import lock from '../config/upstream-lock.json' with { type: 'json' };
 const cryptoSource = readFileSync(resolve(import.meta.dirname, '../vendor/sources/mbedtls-4.0.0.tar.bz2'));
 if (createHash('sha256').update(cryptoSource).digest('hex') !== '2f3a47f7b3a541ddef450e4867eeecb7ce2ef7776093f3a11d6d43ead6bf2827') throw Error('Mbed TLS source checksum mismatch');
+const macVendor = readFileSync(resolve(import.meta.dirname, '../vendor/sources/macvendor.db'));
+if (createHash('sha256').update(macVendor).digest('hex') !== '07ed21629e7bea992c1c0c84cf413e1e361e70da97d000e0467c54ffdbfa4bda') throw Error('Pi-hole MAC vendor database checksum mismatch');
 for (const source of lock.sources) {
   const dir = resolve(import.meta.dirname, '..', 'vendor/pi-hole', source.name);
   const metadata = JSON.parse(readFileSync(resolve(dir, 'SUPER-PI-HOLE-SOURCE.json')));

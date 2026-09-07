@@ -1,5 +1,9 @@
 # Super Pi Hole
 
+<img src="branding/icon.png" width="96" alt="Super Pi Hole icon">
+
+[Download & install](https://github.com/HDR-Performance/super-pi-hole/releases) · [Fresh TrueNAS installation](docs/TRUENAS-INSTALL.md) · [Optional Super Lan-Cache](https://github.com/HDR-Performance/super-lan-cache)
+
 An independent, self-hosted distribution of **Pi-hole v6** with a custom
 controller, device center, and family-policy design workspace. The complete
 pinned upstream sources are public under `vendor/`, with original licenses.
@@ -16,6 +20,10 @@ intentional deployment boundaries, remaining gaps and required release tests.
 **0.4.1-test adds the editors, history explorer and live family controller.
 The older 0.3.0-test image does not contain those features.** See the
 [twelve-feature family/network checklist](docs/FAMILY-NETWORK-FEATURES.md).
+
+## Optional Super Lan-Cache integration
+
+Paste a setup code, choose a service preset, then review and apply the DNS rules. Both apps run independently. [Quick setup](docs/lancache-quick-setup.md).
 
 ## What works
 

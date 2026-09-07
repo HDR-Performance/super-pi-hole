@@ -11,3 +11,10 @@ in the extracted build copy, as required by the pinned Pi-hole FTL build, and
 compiles it statically. No upstream downloads occur during the image build.
 Original license choices/notices are inside the archive; our MIT application
 license does not replace them.
+
+`macvendor.db` is the Pi-hole FTL MAC-address vendor database used by the
+official container during first-run configuration. It was downloaded from
+`https://ftl.pi-hole.net/macvendor.db` on 2026-09-06 and is shipped inside the
+image so a local build does not depend on an unpinned runtime download.
+
+SHA256: `07ed21629e7bea992c1c0c84cf413e1e361e70da97d000e0467c54ffdbfa4bda`

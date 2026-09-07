@@ -217,6 +217,7 @@ export function fixtureFetch({ clock = Date.now } = {}) {
       });
     }
     if (u.pathname === '/api/domains') return response({ domains });
+    if (u.pathname === '/api/domains:batchDelete' && method === 'POST') { for (const item of body) { const index = domains.findIndex(r => r.domain === item.item && r.type === item.type && r.kind === item.kind); if (index >= 0) domains.splice(index, 1); } return new Response(null, { status: 204 }); }
     if (u.pathname.startsWith('/api/domains/')) {
       const [, , , type, kind, encoded] = u.pathname.split('/');
       if (method === 'POST')
@@ -256,6 +257,7 @@ export function fixtureFetch({ clock = Date.now } = {}) {
     if (u.pathname.startsWith('/api/groups/')) { const entry = groups.find(g => g.name === decodeURIComponent(u.pathname.slice(12))); if (method === 'PUT') Object.assign(entry, body); if (method === 'DELETE') groups.splice(groups.indexOf(entry), 1); return response({ groups }); }
     if (u.pathname === '/api/clients') { if (method === 'POST') clients.push({ ...body, id: clients.length + 1 }); return response({ clients }); }
     if (u.pathname.startsWith('/api/clients/')) { const identifier = decodeURIComponent(u.pathname.slice(13)), client = clients.find(c => c.client === identifier); if (method === 'PUT' && client) Object.assign(client, body); if (method === 'DELETE' && client) clients.splice(clients.indexOf(client), 1); return response({ clients: clients.filter(c => c.client === identifier) }); }
+    if (u.pathname === '/api/lists:batchDelete' && method === 'POST') { for (const item of body) { const index = lists.findIndex(l => l.address === item.item && l.type === item.type); if (index >= 0) lists.splice(index, 1); } return new Response(null, { status: 204 }); }
     if (u.pathname.startsWith('/api/lists/')) { const address = decodeURIComponent(u.pathname.slice('/api/lists/'.length)), list = lists.find(l => l.address === address && l.type === u.searchParams.get('type')); if (method === 'PUT' && list) Object.assign(list, body); if (method === 'DELETE' && list) lists.splice(lists.indexOf(list), 1); return response({ lists }); }
     if (u.pathname === '/api/lists') {
       if (method === 'POST')

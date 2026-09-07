@@ -8,6 +8,7 @@ import { createReviewStore, createReviewMiddleware } from './review-service.mjs'
 import { createStockInterface } from './stock-interface.mjs';
 import { createFamilyService } from './family-service.mjs';
 import { createPiholeClient, createLiveMiddleware, fail, json, readJson } from './pihole-service.mjs';
+import { createLanCacheIntegration } from './lancache-integration.mjs';
 
 const derive = promisify(scrypt);
 export function secret(env, name) {
@@ -25,6 +26,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
   const store = createReviewStore(dataPath);
   const review = createReviewMiddleware(store, { authorize: () => true });
   const client = createPiholeClient(pihole);
+  const lancache = createLanCacheIntegration({ path: dataPath === ':memory:' ? ':memory:' : dataPath + '.lancache.sqlite', pihole: client, fetchImpl: pihole.integrationFetchImpl ?? fetch, clock });
   const family = createFamilyService({ path: dataPath === ':memory:' ? ':memory:' : dataPath + '.family.sqlite', client, clock });
   const familyTimer = setInterval(() => { void family.tick(); }, 30000);
   familyTimer.unref();
@@ -82,6 +84,17 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
       }
       if (path.startsWith('/review-api/') || path.startsWith('/live-api/')) {
         if (!authenticated) throw fail(401, 'Sign in to access network information.');
+        if (path.startsWith('/live-api/integrations/lancache')) {
+          if (path === '/live-api/integrations/lancache' && req.method === 'GET') return json(res, 200, lancache.snapshot());
+          if (req.method !== 'POST') throw fail(405, 'Method not allowed.');
+          const body = await readJson(req, 65536);
+          if (path.endsWith('/configure')) return json(res, 200, await lancache.configure(body));
+          if (path.endsWith('/test')) return json(res, 200, await lancache.test());
+          if (path.endsWith('/preview')) return json(res, 200, await lancache.preview(body.selectedServices));
+          if (path.endsWith('/apply')) return json(res, 200, await lancache.apply(body));
+          if (path.endsWith('/rollback')) return json(res, 200, await lancache.rollback(body.revision));
+          throw fail(404, 'Unknown LanCache integration operation.');
+        }
         if (path.startsWith('/live-api/family/')) {
           if (path === '/live-api/family/state' && req.method === 'GET') return json(res, 200, family.snapshot());
           if (req.method !== 'POST') throw fail(405, 'Method not allowed.');
@@ -109,14 +122,14 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
       if (req.method === 'HEAD') return res.end();
       createReadStream(file).on('error', () => res.destroy()).pipe(res);
     } catch (error) {
-      if (!res.headersSent) json(res, error.status ?? 500, { error: error.status ? error.message : 'The server could not complete this request.' });
+      if (!res.headersSent) json(res, error.status ?? 500, { error: error.status ? error.message : 'The server could not complete this request.', ...(error.code ? { code: error.code } : {}) });
       else res.destroy();
     }
   });
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   server.maxHeadersCount = 50;
-  server.once('close', () => { clearInterval(familyTimer); sessions.clear(); store.close(); void family.close(); });
+  server.once('close', () => { clearInterval(familyTimer); sessions.clear(); store.close(); lancache.close(); void family.close(); });
   return server;
 }
 

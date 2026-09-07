@@ -18,6 +18,7 @@ import {
 import { Choice, TextField } from './review-context';
 import { liveApi, useData, type Pending } from './live-pihole';
 import { EngineSettings } from './engine-settings';
+import { LanCacheIntegration } from './lancache-integration';
 import { validateSetting } from '@/lib/engine-settings.mjs';
 
 type Value = string | number | boolean | string[];
@@ -618,7 +619,7 @@ function Diagnostics({
 export function EngineWorkbench() {
   const [settingsReset, setSettingsReset] = useState(0);
   const [revision, refresh] = useState(0),
-    [tab, setTab] = useState('settings'),
+    [tab, setTab] = useState(() => typeof window !== 'undefined' && window.location.hash === '#lancache' ? 'integrations' : 'settings'),
     [pending, setPending] = useState<Pending | null>(null),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
@@ -660,6 +661,7 @@ export function EngineWorkbench() {
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="diagnostics">Diagnostics & tools</TabsTrigger>
           <TabsTrigger value="backup">Backups</TabsTrigger>
+          <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="expert">Advanced manager</TabsTrigger>
         </TabsList>
         <TabsContent value="settings">
@@ -693,6 +695,9 @@ export function EngineWorkbench() {
               settings. Keep dataset snapshots for full rollback.
             </p>
           </section>
+        </TabsContent>
+        <TabsContent value="integrations">
+          <LanCacheIntegration />
         </TabsContent>
         <TabsContent value="expert">
           <EngineSettings />

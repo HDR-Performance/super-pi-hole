@@ -7,11 +7,11 @@ import { createHash } from 'node:crypto';
 import { verifyBundle } from '../deploy/verify-bundle.mjs';
 test('bundle verifier detects modified, extra, and unsafe paths', () => {
   const root = mkdtempSync(join(tmpdir(), 'sph-bundle-'));
-  const paths = ['server/runtime.mjs', 'server/review-service.mjs', 'server/pihole-service.mjs', 'standalone-dist/index.html', 'deploy/truenas.yaml'];
+  const paths = ['server/runtime.mjs', 'server/review-service.mjs', 'server/pihole-service.mjs', 'server/lancache-integration.mjs', 'standalone-dist/index.html', 'deploy/truenas.yaml'];
   const files = paths.map(path => { mkdirSync(dirname(join(root, path)), { recursive: true }); writeFileSync(join(root, path), 'fixture'); return { path, size: 7, sha256: createHash('sha256').update('fixture').digest('hex') }; });
   const manifest = { product: 'Super Pi Hole', version: 'test', files };
   writeFileSync(join(root, 'manifest.json'), JSON.stringify(manifest));
-  assert.equal(verifyBundle(root).files, 5);
+  assert.equal(verifyBundle(root).files, paths.length);
   writeFileSync(join(root, paths[0]), 'changed');
   assert.throws(() => verifyBundle(root), /Bundle verification failed: server\/runtime.mjs/);
   writeFileSync(join(root, paths[0]), 'fixture');

@@ -101,3 +101,13 @@ test('Windows and LG privacy packs are opt-in and never part of the default pres
     assert.match(config.presets.find(p => p.sources.includes(id)).note, /Off by default/);
   }
 });
+test('2026 aggressive tiers are explicit opt-ins and use one mutually exclusive base list', () => {
+  const config = JSON.parse(readFileSync(new URL('../config/blocklist-presets.json', import.meta.url), 'utf8'));
+  const aggressive = config.presets.find(p => p.id === 'aggressive');
+  const maximum = config.presets.find(p => p.id === 'maximum');
+  assert.deepEqual(aggressive.sources, ['hagezi-pro-plus', 'hagezi-tif-medium']);
+  assert.deepEqual(maximum.sources, ['hagezi-ultimate', 'hagezi-tif-medium']);
+  assert.match(aggressive.note, /Does not reliably remove YouTube in-stream ads/);
+  assert.match(maximum.note, /Highest-breakage/);
+  assert.equal(config.defaultPreset, 'balanced');
+});

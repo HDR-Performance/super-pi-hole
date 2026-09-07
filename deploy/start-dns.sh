@@ -9,16 +9,18 @@ if [[ -f /etc/pihole/setupVars.conf && ! -f /etc/pihole/pihole.toml ]]; then
   echo 'Migrate v5 to supported Pi-hole v6 first; this release upgrades v6 only.' >&2
   exit 1
 fi
-# No default-password, upstream DNS, or default-adlist replacement at startup.
-getFTLConfigValue >/dev/null
+# Apply explicit FTLCONF values and create pihole.toml on a fresh volume.
+set_uid_gid
+ftl_config
 install_logrotate
 gravityDBfile=$(getFTLConfigValue files.gravity)
 if [[ ! -f "$gravityDBfile" ]]; then
-  echo 'Existing gravity database required. Restore the correct data mount.' >&2
-  exit 1
+  echo 'Fresh Pi-hole data directory detected; creating the initial gravity database.'
+  migrate_gravity
+else
+  source /etc/.pihole/advanced/Scripts/database_migration/gravity-db.sh
+  upgrade_gravityDB "$gravityDBfile" /etc/pihole
 fi
-source /etc/.pihole/advanced/Scripts/database_migration/gravity-db.sh
-upgrade_gravityDB "$gravityDBfile" /etc/pihole
 fix_capabilities
 sh /opt/pihole/pihole-FTL-prestart.sh
 cat /app/config/pihole-versions > /etc/pihole/versions

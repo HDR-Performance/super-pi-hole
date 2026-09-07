@@ -133,9 +133,8 @@ test('domain rules preserve explicit group scope and delete exact encoded target
     kind: 'regex',
     confirmed: true,
   });
-  assert.ok(
-    f.calls.at(-1).path.endsWith(encodeURIComponent('^ads[.]example$')),
-  );
+  assert.equal(f.calls.at(-1).path, '/api/domains:batchDelete');
+  assert.deepEqual(f.calls.at(-1).body, [{ item: '^ads[.]example$', type: 'deny', kind: 'regex' }]);
   await assert.rejects(
     c.act({
       action: 'domain-add',

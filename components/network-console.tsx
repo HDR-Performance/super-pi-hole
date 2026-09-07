@@ -10,6 +10,7 @@ import {
   Settings2,
   UsersRound,
   ListFilter,
+  Share2,
   Save,
   Bell,
   ArrowUpRight,
@@ -42,7 +43,6 @@ import {
 import { CountriesPanel, DevicesPanel, SchedulesPanel } from './network-panels';
 import {
   ActivityPanel,
-  BlocklistsPanel,
   SettingsPanel,
   EventTable,
 } from './activity-panels';
@@ -53,6 +53,7 @@ import { FamilyDnsControls, FamilyNotifications, type FamilyState } from './fami
 import { useData } from './live-pihole';
 import { useEffect, useState } from 'react';
 import { EngineWorkbench as EngineSettings } from './engine-workbench';
+import { NetworkPolicyControls } from './network-policy-controls';
 import { useSession } from './session-gate';
 const navigation = [
   ['Live Pi-hole', Radio],
@@ -61,7 +62,8 @@ const navigation = [
   ['Countries', Globe2],
   ['Devices', Monitor],
   ['Schedules', CalendarClock],
-  ['Blocklists', ListFilter],
+  ['Ad & Trackers', ListFilter],
+  ['Social Platforms', Share2],
   ['Activity', Activity],
   ['Notifications', Bell],
   ['Advanced Pi-hole', Settings2],
@@ -73,14 +75,15 @@ function Console() {
   const { setOpenMobile } = useSidebar();
   const alerts = r.events.filter((e) => e.notification && !e.acknowledged);
   const [familyTick, tickFamily] = useState(0);
+  useEffect(() => { if (window.location.hash === '#lancache') setSection('Advanced Pi-hole'); }, [setSection]);
   const family = useData<FamilyState>('family/state', familyTick);
   useEffect(() => { const timer = setInterval(() => { if (!document.hidden) tickFamily(n => n + 1); }, 5000); return () => clearInterval(timer); }, []);
-  const liveSection = ['Live Pi-hole', 'Devices', 'Advanced Pi-hole', 'Parental Controls', 'Schedules', 'Blocklists', 'Notifications'].includes(section);
+  const liveSection = ['Live Pi-hole', 'Devices', 'Advanced Pi-hole', 'Parental Controls', 'Schedules', 'Ad & Trackers', 'Social Platforms', 'Notifications'].includes(section);
   return (
     <>
       <Sidebar>
         <SidebarHeader className="brand">
-          <Shield />
+          <img src="/favicon.svg" alt="" width={38} height={38} />
           <span>
             Super Pi Hole<small>Family & smart-home privacy</small>
           </span>
@@ -127,13 +130,13 @@ function Console() {
             <Bell />
             {!!family.data?.unread && family.data.unread}
           </Button>
-          <Button
+          {!liveSection && <Button
             disabled={!r.ready || r.busy || !r.dirty}
             onClick={r.saveClick}
           >
             <Save />
             {r.busy ? 'Saving simulator…' : r.dirty ? 'Save simulator changes' : 'Simulator saved'}
-          </Button>
+          </Button>}
         </header>
         <main className="workspace nc-workspace">
           {session.synthetic && <div className="nc-review-strip"><FlaskConical /><strong>Synthetic test server. All DNS clients, queries, and live-control actions on this page are fabricated test data.</strong></div>}
@@ -171,10 +174,7 @@ function Console() {
           </> : section === 'Schedules' ? <>
             <FamilyDnsControls view="schedules" />
             {r.ready && <details className="panel"><summary>Separate schedule simulator · does not control DNS</summary><SchedulesPanel /></details>}
-          </> : section === 'Blocklists' ? <>
-            <FamilyDnsControls view="blocklists" />
-            {r.ready && <details className="panel"><summary>Curated list research and policy simulator · does not control DNS</summary><BlocklistsPanel /></details>}
-          </> : !r.ready ? (
+          </> : section === 'Ad & Trackers' ? <NetworkPolicyControls view="blocklists" /> : section === 'Social Platforms' ? <NetworkPolicyControls view="social" /> : !r.ready ? (
             <section className="panel">
               <h1>Connecting to the local review service</h1>
               <p>
@@ -266,9 +266,9 @@ function Console() {
                       </div>
                       <Button
                         variant="outline"
-                        onClick={() => setSection('Blocklists')}
+                        onClick={() => setSection('Ad & Trackers')}
                       >
-                        Review blocklist defaults <ArrowUpRight />
+                        Manage live ad protection <ArrowUpRight />
                       </Button>
                     </section>
                     <section className="panel">
@@ -341,7 +341,6 @@ function Console() {
               {section === 'Countries' && <CountriesPanel />}
               {section === 'Devices' && <DevicesPanel />}
               {section === 'Schedules' && <SchedulesPanel />}
-              {section === 'Blocklists' && <BlocklistsPanel />}
               {section === 'Activity' && <ActivityPanel />}
               {section === 'Advanced Pi-hole' && <SettingsPanel />}
             </>

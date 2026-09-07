@@ -25,7 +25,7 @@ export function verifyBundle(directory) {
     }
   };
   walk(root);
-  for (const required of ['server/runtime.mjs', 'server/review-service.mjs', 'server/pihole-service.mjs', 'standalone-dist/index.html', 'deploy/truenas.yaml']) if (!expected.has(required)) throw Error(`Incomplete bundle: ${required}`);
+  for (const required of ['server/runtime.mjs', 'server/review-service.mjs', 'server/pihole-service.mjs', 'server/lancache-integration.mjs', 'standalone-dist/index.html', 'deploy/truenas.yaml']) if (!expected.has(required)) throw Error(`Incomplete bundle: ${required}`);
   return { version: manifest.version, files: manifest.files.length };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) console.log(JSON.stringify(verifyBundle(process.argv[2] ?? '.'), null, 2));

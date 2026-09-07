@@ -247,6 +247,27 @@ export function createPiholeClient({
   };
   return {
     info,
+    async integrationState() {
+      if (!base) throw fail(503, 'DNS engine is not connected.');
+      const [config, domains] = await Promise.all([request('config'), request('domains')]);
+      const lines = config.config?.misc?.dnsmasq_lines;
+      if (!Array.isArray(lines) || lines.some((line) => typeof line !== 'string')) throw fail(502, 'Pi-hole dnsmasq-line configuration is unavailable.');
+      return { lines, domains: Array.isArray(domains.domains) ? domains.domains : [] };
+    },
+    async replaceIntegrationLines(expected, next) {
+      if (!writeEnabled || !base) throw fail(403, 'Live DNS writes are not enabled.');
+      if (mutating) throw fail(409, 'Another Pi-hole change is running.');
+      if (!Array.isArray(expected) || !Array.isArray(next) || next.length > 25000 || next.some((line) => typeof line !== 'string' || line.length > 4096 || /[\r\n\0]/.test(line))) throw fail(400, 'Invalid managed dnsmasq lines.');
+      mutating = true;
+      try {
+        const before = (await request('config')).config?.misc?.dnsmasq_lines;
+        if (!Array.isArray(before) || JSON.stringify(before) !== JSON.stringify(expected)) throw fail(409, 'Pi-hole DNS settings changed. Create a new route preview.');
+        await request('config', 'PATCH', { config: { misc: { dnsmasq_lines: next } } });
+        const after = (await request('config')).config?.misc?.dnsmasq_lines;
+        if (!Array.isArray(after) || JSON.stringify(after) !== JSON.stringify(next)) throw fail(502, 'Pi-hole did not confirm the LanCache DNS route update. Inspect DNS before retrying.');
+        return { lines: after };
+      } finally { mutating = false; }
+    },
     async syncFamily(plan) {
       if (!writeEnabled || !base) throw fail(403, 'Live family writes require a connected, write-enabled Pi-hole.');
       if (mutating || gravity.state === 'running') throw fail(409, 'Another engine operation is running. Review and retry family changes afterward.');
@@ -468,11 +489,12 @@ export function createPiholeClient({
             const existing = (await request('lists')).lists?.find(l => l.address === address && l.type === body.type);
             if (!body.create && !existing) throw fail(409, 'This subscription no longer exists. Reload before saving.');
             if (!body.create && JSON.stringify(existing ?? null) !== JSON.stringify(body.expected ?? null)) throw fail(409, 'Subscription changed. Reload before saving.');
-            method = body.action === 'list-delete' ? 'DELETE' : body.create === true ? 'POST' : 'PUT';
-            path = 'lists' + (method === 'POST' ? '' : '/' + encodeURIComponent(address)) + '?type=' + body.type;
-            if (method !== 'DELETE' && typeof body.enabled !== 'boolean') throw fail(400, 'Choose an enabled state.');
-            payload = method === 'DELETE' ? undefined : { address, type: body.type, enabled: body.enabled, groups: groupIds(body.groups), comment }; readback = 'lists';
-            if (payload) {
+            const deleting = body.action === 'list-delete';
+            method = deleting ? 'POST' : body.create === true ? 'POST' : 'PUT';
+            path = deleting ? './lists:batchDelete' : 'lists' + (body.create === true ? '' : '/' + encodeURIComponent(address)) + '?type=' + body.type;
+            if (!deleting && typeof body.enabled !== 'boolean') throw fail(400, 'Choose an enabled state.');
+            payload = deleting ? [{ item: address, type: body.type }] : { address, type: body.type, enabled: body.enabled, groups: groupIds(body.groups), comment }; readback = 'lists';
+            if (!deleting) {
               const known = (await request('groups')).groups;
               if (!Array.isArray(known) || payload.groups.some(id => !known.some(g => g.id === id))) throw fail(400, 'A selected group no longer exists.');
             }
@@ -511,7 +533,8 @@ export function createPiholeClient({
             const entries = body.action.startsWith('group-') ? verified.groups : verified.lists;
             if (!Array.isArray(entries)) throw fail(502, 'Change submitted but verification is unavailable. Reload before retrying.');
             const found = entries.find(e => body.action.startsWith('group-') ? e.name === (method === 'DELETE' ? body.previous ?? body.name : payload.name) : e.address === body.address && e.type === body.type);
-            if (method === 'DELETE' ? !!found : (!found || found.enabled !== payload.enabled || found.comment !== payload.comment || (payload.groups && JSON.stringify([...found.groups].sort((a, b) => a - b)) !== JSON.stringify([...payload.groups].sort((a, b) => a - b))))) throw fail(502, 'Change submitted but readback differs. Reload before retrying.');
+            const deleted = body.action === 'group-delete' || body.action === 'list-delete';
+            if (deleted ? !!found : (!found || found.enabled !== payload.enabled || found.comment !== payload.comment || (payload.groups && JSON.stringify([...found.groups].sort((a, b) => a - b)) !== JSON.stringify([...payload.groups].sort((a, b) => a - b))))) throw fail(502, 'Change submitted but readback differs. Reload before retrying.');
           }
           if (body.action === 'client-assign') {
             const actual = verified.clients?.find(c => c.client.toLowerCase() === body.client.toLowerCase());
@@ -563,7 +586,11 @@ export function createPiholeClient({
             groups: [...new Set(groups)],
             enabled: true,
           };
-        } else path += '/' + encodeURIComponent(domain);
+        } else {
+          path = './domains:batchDelete';
+          method = 'POST';
+          payload = [{ item: domain, type: body.type, kind: body.kind }];
+        }
       } else if (body.action === 'privacy-list-add') {
         const source = catalog.sources.find(
           (s) =>

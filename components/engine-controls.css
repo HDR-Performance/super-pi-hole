@@ -10,3 +10,25 @@
 .sph-devices td small { display: block; color: #a8c4dd; }
 .sph-devices fieldset { border: 1px solid #2b4054; border-radius: 9px; padding: 12px; margin-top: 16px; }
 .sph-engine pre { padding: 14px; background: #0e1824; color: #bfe8db; border-radius: 9px; }
+.sph-policy-card { border: 1px solid #2b4054; border-radius: 12px; padding: 18px; background: #152333; display: flex; flex-direction: column; gap: 10px; min-height: 220px; }
+.sph-policy-card.selected { border-color: #4ed1b4; background: #173039; box-shadow: inset 0 3px 0 #4ed1b4; }
+.sph-policy-card.selected.danger { border-color: #ff776d; box-shadow: inset 0 3px 0 #ff776d; }
+.sph-policy-card h3, .sph-policy-card p { margin: 0; }
+.sph-policy-card small { color: #a8c4dd; }
+.sph-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: auto; padding-top: 12px; border-top: 1px solid #2b4054; font-weight: 700; }
+.sph-social-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+@media (max-width: 760px) { .sph-social-grid, .nc-preset-grid { grid-template-columns: 1fr; } }
+.sph-device-table-wrap { max-height: 430px; overflow: auto; }
+.sph-device-table-wrap tr { cursor: pointer; }
+.sph-device-table-wrap tr.selected td { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.sph-assignment-card { display: grid; gap: 1rem; margin-top: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: 12px; }
+.sph-device-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.sph-check-row { display: block; padding: .4rem; }
+.sph-capability-card h3 { margin-bottom: .35rem; }
+.sph-integration-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .75rem; }
+.sph-integration-facts div { padding: .75rem; border: 1px solid var(--border); border-radius: 10px; }
+.sph-integration-facts dt { color: var(--muted-foreground); font-size: .8rem; }
+.sph-integration-facts dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+.sph-service-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .75rem; margin: 1rem 0; }
+.sph-route-preview { margin-top: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: 12px; }
+.sph-route-preview pre { max-height: 240px; overflow: auto; white-space: pre-wrap; }

@@ -11,7 +11,7 @@ async function fixture(t, options = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'sph-runtime-'));
   writeFileSync(join(directory, 'index.html'), '<!doctype html><h1>Fixture</h1>');
   const api = fixtureFetch();
-  const server = createRuntime({ publicOrigin: 'http://app.example', password, dataPath: join(directory, 'review.sqlite'), staticDir: directory, pihole: { url: 'http://pihole.example', fetchImpl: api.request, writeEnabled: true }, ...options });
+  const server = createRuntime({ publicOrigin: 'http://app.example', password, dataPath: join(directory, 'review.sqlite'), staticDir: directory, pihole: { url: 'http://pihole.example', fetchImpl: api.request, integrationFetchImpl: options.integrationFetchImpl, writeEnabled: true }, ...options });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -79,6 +79,27 @@ test('family routes require authentication and same-origin confirmation; saves n
   assert.equal(snapshot.config.profiles[0].name, 'Family'); assert.ok(snapshot.unread);
   assert.equal(api.calls.some(c => c.path === '/api/dns/blocking' && c.method !== 'GET'), false);
   assert.equal(api.calls.some(c => c.path === '/api/config' && c.method !== 'GET'), false);
+});
+test('LanCache API masks pairing credentials and requires authentication plus same-origin writes', async t => {
+  const peer = async (url) => {
+    const path = new URL(url).pathname;
+    const body = path.endsWith('/identity')
+      ? { apiVersion: 1, product: 'lancache', version: '0.1.0', instanceId: 'lan-cache-runtime-1', capabilities: ['status.read', 'services.read'] }
+      : path.endsWith('/status')
+        ? { engine: { healthy: true }, sampledAt: '2026-09-06T00:00:00.000Z', contentAddresses: { ipv4: ['192.168.0.8'], ipv6: [] }, managementUrl: 'http://192.168.0.8:20722/' }
+        : { revision: 'runtime-1', services: [] };
+    return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } });
+  };
+  const { call, login } = await fixture(t, { integrationFetchImpl: peer });
+  assert.equal((await call('/live-api/integrations/lancache')).status, 401);
+  const cookie = (await login()).headers.get('set-cookie').split(';')[0];
+  const headers = { Cookie: cookie, 'Content-Type': 'application/json' };
+  const body = JSON.stringify({ revision: 0, enabled: true, managementUrl: 'http://192.168.0.8:20722/', pairingToken: 'runtime-pair-secret' });
+  assert.equal((await call('/live-api/integrations/lancache/configure', { method: 'POST', headers: { ...headers, Origin: 'http://evil.example' }, body })).status, 403);
+  const saved = await (await call('/live-api/integrations/lancache/configure', { method: 'POST', headers, body })).json();
+  assert.equal(saved.hasToken, true); assert.equal(saved.pairingToken, '••••••••'); assert.equal(JSON.stringify(saved).includes('runtime-pair-secret'), false);
+  const tested = await (await call('/live-api/integrations/lancache/test', { method: 'POST', headers, body: '{}' })).json();
+  assert.equal(tested.connection.state, 'Connected'); assert.equal(JSON.stringify(tested).includes('runtime-pair-secret'), false);
 });
 test('wrong hosts and cross-origin changes are rejected even when authenticated', async t => {
   const { call, login, api } = await fixture(t);

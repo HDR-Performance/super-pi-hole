@@ -13,9 +13,9 @@ if (existsSync(target)) throw Error('This release path already exists. Existing 
 mkdirSync(target, { recursive: true });
 // Explicit allowlist: no home database, browser data, .env, personal docs, or source credentials.
 const paths = [
-  'standalone-dist', 'server/runtime.mjs', 'server/review-service.mjs', 'server/pihole-service.mjs', 'server/stock-interface.mjs', 'server/migrations',
+  'standalone-dist', 'server/runtime.mjs', 'server/review-service.mjs', 'server/pihole-service.mjs', 'server/stock-interface.mjs', 'server/lancache-integration.mjs', 'server/migrations',
   'lib/network-policy.ts', 'lib/parental-policy.ts', 'lib/countries.ts', 'lib/blocking-control.mjs', 'lib/engine-settings.mjs', 'server/engine-features.mjs',
-  'config/blocklist-presets.json', 'lib/family-dns.mjs', 'server/family-engine.mjs', 'server/family-service.mjs', 'docs/FAMILY-NETWORK-FEATURES.md',
+  'config/blocklist-presets.json', 'lib/family-dns.mjs', 'server/family-engine.mjs', 'server/family-service.mjs', 'docs/FAMILY-NETWORK-FEATURES.md', 'docs/LANCACHE-INTEGRATION.md',
   'deploy/truenas.yaml', 'deploy/init-data.mjs', 'deploy/healthcheck.mjs', 'deploy/verify-bundle.mjs',
   'tools/upgrade-plan.mjs', 'README.md', 'docs/FEATURE-PARITY.md', 'config/upstream-lock.json', 'DEPLOYMENT.md', 'UPGRADING.md', 'SECURITY.md', 'THIRD-PARTY-NOTICES.md', 'LICENSE', 'vendor-notices',
 ];

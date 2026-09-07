@@ -74,7 +74,9 @@ const viewCopy: Record<FamilyView, { eyebrow: string; title: string; description
 };
 export function FamilyDnsControls({ view = 'parental' }: { view?: FamilyView }) {
   const family = useFamily();
-  const inventory = useData<Inventory>('devices', family.data?.revision ?? 0);
+  const [inventoryRevision, setInventoryRevision] = useState(0);
+  const inventory = useData<Inventory>('devices', (family.data?.revision ?? 0) + inventoryRevision);
+  const refreshAll = () => { family.refresh(); setInventoryRevision((n) => n + 1); };
   const copy = viewCopy[view];
   return (
     <section className="sph-family-live">
@@ -84,7 +86,7 @@ export function FamilyDnsControls({ view = 'parental' }: { view?: FamilyView }) 
           <h1>{copy.title}</h1>
           <p>{copy.description}</p>
         </div>
-        <Button variant="outline" onClick={family.refresh}>
+        <Button variant="outline" onClick={refreshAll}>
           Refresh status
         </Button>
       </div>
@@ -98,7 +100,7 @@ export function FamilyDnsControls({ view = 'parental' }: { view?: FamilyView }) 
           key={family.data.revision}
           value={family.data}
           inventory={inventory.data}
-          refresh={family.refresh}
+          refresh={refreshAll}
           view={view}
         />
       ) : (
@@ -121,6 +123,7 @@ function FamilyEditor({
   const [draft, setDraft] = useState(value.config),
     [selected, setSelected] = useState(value.config.profiles[0]?.groupId ?? -1);
   const [group, setGroup] = useState(''),
+    [newGroupName, setNewGroupName] = useState(''),
     [history, setHistory] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
@@ -278,10 +281,33 @@ function FamilyEditor({
       <section className="panel">
         <h2>Registered family groups</h2>
         <p>
-          Create dedicated groups in Live Pi-hole → Groups, then register them
-          here. In Devices, click a device and assign its family group. Avoid
-          sharing a group between family and infrastructure devices.
+          Create and register a dedicated family member or household group here.
+          Then open Devices, click each device, and assign it to that Pi-hole
+          group. Avoid sharing family groups with infrastructure devices.
         </p>
+        <div className="sph-actions">
+          <label>
+            New family member or group
+            <input value={newGroupName} maxLength={128} placeholder="Example: Alex or Kids" onChange={(e) => setNewGroupName(e.target.value)} />
+          </label>
+          <Button variant="outline" disabled={locked || !newGroupName.trim()} onClick={() => {
+            const name = newGroupName.trim();
+            if (!window.confirm(`Create the live Pi-hole group “${name}” and register it for parental controls? No devices are assigned automatically.`)) return;
+            setBusy(true); setError(''); setMessage('');
+            void liveApi<{ message: string }>('action', undefined, { action: 'group-save', create: true, name, enabled: true, comment: 'Super Pi Hole family group', confirmed: true })
+              .then(async () => {
+                const current = await liveApi<{ groups: Inventory['groups'] }>('groups');
+                const created = current.groups.find((g) => g.name === name);
+                if (!created || created.id === 0) throw Error('Pi-hole created the group but readback could not identify it. Refresh before retrying.');
+                setDraft((d) => ({ ...d, profiles: [...d.profiles, { groupId: created.id, name: created.name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, blocked: [], schedules: [] }] }));
+                setSelected(created.id); setNewGroupName('');
+                setMessage(`“${created.name}” is registered in this draft. Choose its filters below, then Apply family DNS changes.`);
+              })
+              .catch((e) => setError((e as Error).message))
+              .finally(() => setBusy(false));
+          }}>Create & register</Button>
+        </div>
+        <p className="nc-helper">Existing dedicated Pi-hole groups can still be registered below.</p>
         <div className="sph-actions">
           {draft.profiles.map((p) => (
             <Button

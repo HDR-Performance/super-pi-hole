@@ -42,3 +42,10 @@ next-env.d.ts
 /release/
 /third-party-licenses/
 *.tsbuildinfo
+
+/.openai/
+/image-digest.txt
+/SHA256SUMS.txt
+/super-pi-hole-truenas-fresh.yaml
+/super-pi-hole-truenas-upgrade.yaml
+/super-pi-hole-existing-app-upgrade.yaml

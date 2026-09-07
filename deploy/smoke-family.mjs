@@ -71,7 +71,22 @@ execFileSync('docker', ['restart', 'sph-ci-ui'], { stdio: 'inherit' });
 await eventually(async () => { try { return (await fetch(origin + '/healthz')).ok; } catch { return false; } }, 'Controller failed to restart.');
 cookie = null;
 await api('/session-api/login', { password: 'ci-only-long-test-password' });
+await eventually(async () => {
+  try {
+    const overview = await api('/live-api/overview');
+    return overview.data?.summary?.queries?.total > 0;
+  } catch {
+    return false;
+  }
+}, 'Pi-hole connector did not recover after the controller restart.');
 state = await api('/live-api/family/state');
+if (state.status === 'attention') {
+  state = await api('/live-api/family/retry', {
+    confirmed: true,
+    acknowledgement: 'RECONCILE MANAGED RULES',
+    revision: state.revision,
+  });
+}
 assert.equal(state.config.paused, true);
 assert.equal(state.config.profiles[0].name, 'CI child');
 await save({ version: 1, paused: false, detailDays: 30, profiles: [] });

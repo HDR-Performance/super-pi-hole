@@ -13,7 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Super Pi Hole — local review',
+  title: 'Super Pi Hole',
+  icons: { icon: '/favicon.svg' },
   description:
     'Review country policies, device rules, family controls, schedules, and curated blocklists before a separate TrueNAS test deployment.',
 };
