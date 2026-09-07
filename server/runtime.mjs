@@ -110,6 +110,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
       if (!['GET', 'HEAD'].includes(req.method)) throw fail(405, 'Method not allowed.');
       let relative;
       if (path === '/') relative = 'index.html';
+      else if (path === '/favicon.svg') relative = 'favicon.svg';
       else if (/^\/assets\/[A-Za-z0-9_.-]+\.(js|css|woff|woff2)$/.test(path)) relative = path.slice(1);
       else throw fail(404, 'Not found.');
       const file = resolve(staticDir, relative);
@@ -117,7 +118,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
       try { stat = statSync(file); } catch { throw fail(404, 'Not found.'); }
       if (!stat.isFile()) throw fail(404, 'Not found.');
       const extension = relative.split('.').at(-1);
-      res.setHeader('Content-Type', { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', woff: 'font/woff', woff2: 'font/woff2' }[extension]);
+      res.setHeader('Content-Type', { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', woff: 'font/woff', woff2: 'font/woff2', svg: 'image/svg+xml' }[extension]);
       res.setHeader('Content-Length', stat.size);
       if (req.method === 'HEAD') return res.end();
       createReadStream(file).on('error', () => res.destroy()).pipe(res);

@@ -10,6 +10,7 @@ const password = 'test-only-long-admin-password';
 async function fixture(t, options = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'sph-runtime-'));
   writeFileSync(join(directory, 'index.html'), '<!doctype html><h1>Fixture</h1>');
+  writeFileSync(join(directory, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"></svg>');
   const api = fixtureFetch();
   const server = createRuntime({ publicOrigin: 'http://app.example', password, dataPath: join(directory, 'review.sqlite'), staticDir: directory, pihole: { url: 'http://pihole.example', fetchImpl: api.request, integrationFetchImpl: options.integrationFetchImpl, writeEnabled: true }, ...options });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -156,4 +157,12 @@ test('repeated incorrect passwords are rate-limited', async t => {
   const post = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'wrong' }) };
   for (let i = 0; i < 10; i++) assert.equal((await call('/session-api/login', post)).status, 401);
   assert.equal((await call('/session-api/login', post)).status, 429);
+});
+
+test('public brand icon is served with an image MIME type while arbitrary files remain unavailable', async t => {
+  const {call} = await fixture(t);
+  const icon = await call('/favicon.svg');
+  assert.equal(icon.status, 200);
+  assert.equal(icon.headers.get('content-type'), 'image/svg+xml');
+  assert.equal((await call('/review.sqlite')).status, 404);
 });
