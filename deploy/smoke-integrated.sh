@@ -17,7 +17,7 @@ docker run --rm --user 0:0 --read-only --cap-drop ALL --cap-add CHOWN --cap-add 
   -e SUPER_PIHOLE_PASSWORD=ci-only-long-test-password -v sph-ci-engine:/source/config:ro \
   -v sph-ci-dnsmasq:/source/dnsmasq:ro -v sph-ci-backups:/backups -v sph-ci-ui-data:/data \
   "$image" node /app/deploy/backup-upgrade.mjs
-docker run -d --name sph-ci-dns --user 0:0 --cap-add NET_ADMIN --cap-add SYS_NICE --cap-add SYS_TIME \
+docker run -d --name sph-ci-dns --user 0:0 --cap-add NET_ADMIN --cap-add SYS_NICE --cap-add SYS_TIME -e FTLCONF_webserver_api_password= \
   -v sph-ci-engine:/etc/pihole -p 127.0.0.1:20721:20721 "$image" bash /app/deploy/start-dns.sh
 trap 'docker logs sph-ci-dns; docker logs sph-ci-ui 2>/dev/null || true' ERR
 for i in $(seq 1 60); do
