@@ -48,7 +48,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try {
       const path = new URL(req.url, origin).pathname;
-      if (path === '/healthz' && req.method === 'GET') return json(res, 200, { ok: true, service: 'Super Pi Hole', version: '0.4.1-test' });
+      if (path === '/healthz' && req.method === 'GET') return json(res, 200, { ok: true, service: 'Super Pi Hole', version: '0.4.2-test' });
       if (req.headers.host !== origin.host || req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== origin.origin)) throw fail(403, 'Use the configured Super Pi Hole address. Cross-origin requests are blocked.');
       if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== origin.origin) throw fail(403, 'A same-origin request is required.');
       for (const [key, expires] of sessions) if (expires <= clock()) sessions.delete(key);
@@ -146,7 +146,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   });
   const port = Number(env.PORT ?? 8080);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid PORT.');
-  server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Super Pi Hole 0.4.1-test listening on port ${port}; live writes ${env.PIHOLE_WRITE_ENABLED === 'true' ? 'unlocked' : 'locked'}; GUI authentication ${env.SUPER_PIHOLE_AUTH_DISABLED === 'true' ? 'disabled' : 'enabled'}.`));
+  server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Super Pi Hole 0.4.2-test listening on port ${port}; live writes ${env.PIHOLE_WRITE_ENABLED === 'true' ? 'unlocked' : 'locked'}; GUI authentication ${env.SUPER_PIHOLE_AUTH_DISABLED === 'true' ? 'disabled' : 'enabled'}.`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 10000).unref();
