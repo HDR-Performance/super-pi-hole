@@ -10,6 +10,9 @@ import { managedFamilyRules } from './family-engine.mjs';
 export function createFamilyService({ path, client, clock = Date.now }) {
   // Separate file: no change to existing review-settings schema or Pi-hole databases.
   const db = new DatabaseSync(path);
+  db.exec('CREATE TABLE IF NOT EXISTS engine_health (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL)');
+  db.prepare('INSERT OR IGNORE INTO engine_health VALUES(1,?)').run(JSON.stringify({ checkedAt: null, issues: [] }));
+  const health = () => JSON.parse(db.prepare('SELECT body FROM engine_health WHERE id=1').get().body);
   db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
   db.exec(
     'CREATE TABLE IF NOT EXISTS family_state (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, body TEXT NOT NULL);',
@@ -54,11 +57,13 @@ export function createFamilyService({ path, client, clock = Date.now }) {
       new Date(clock() - 365 * 86400000).toISOString().slice(0, 10),
     );
   };
+  db.exec('CREATE TABLE IF NOT EXISTS notification_sequence (n INTEGER NOT NULL)');
+  if (!db.prepare('SELECT n FROM notification_sequence').get()) db.prepare('INSERT INTO notification_sequence SELECT coalesce(max(id),0) FROM family_events').run();
   const event = (severity, message) => {
     if (read().config.detailDays > 0)
       db.prepare(
-        'INSERT INTO family_events(at,severity,message) VALUES(?,?,?)',
-      ).run(clock(), severity, message);
+        'INSERT INTO family_events(id,at,severity,message) VALUES(?,?,?,?)',
+      ).run(db.prepare('UPDATE notification_sequence SET n=n+1 RETURNING n').get().n, clock(), severity, message);
     db.prepare(
       'INSERT INTO family_daily VALUES(?,?,?) ON CONFLICT(day) DO UPDATE SET changes=changes+excluded.changes,errors=errors+excluded.errors',
     ).run(
@@ -79,11 +84,34 @@ export function createFamilyService({ path, client, clock = Date.now }) {
   }
   let busy = false,
     closed = false;
+  let checking = false;
+  const checkHealth = async () => {
+    if (closed || checking) return;
+    checking = true;
+    try {
+      const previous = health();
+      const issues = [];
+      try {
+        const result = await client.read('engine-health');
+        if (!['enabled', 'disabled'].includes(result.blocking) || !Number.isSafeInteger(result.messageCount) || result.messageCount < 0) throw Error('Invalid health response');
+        if (result.blocking === 'disabled') issues.push('Pi-hole blocking is disabled. Saved block rules are not being enforced.');
+        if (result.messageCount) issues.push(`Pi-hole reports ${result.messageCount} diagnostic messages. Review Settings & tools diagnostics for details.`);
+      } catch (error) {
+        issues.push([401, 403].includes(error.status)
+          ? 'Pi-hole authentication was rejected. Check the engine API credentials.'
+          : 'Pi-hole API health could not be verified. Check connectivity, engine status and API compatibility.');
+      }
+      for (const issue of issues) if (!previous.issues.includes(issue)) event('warning', issue);
+      if (previous.issues.length && !issues.length) event('info', 'Pi-hole API checks recovered: blocking is enabled and no diagnostic messages are reported. This is not an end-to-end DNS test.');
+      db.prepare('UPDATE engine_health SET body=? WHERE id=1').run(JSON.stringify({ checkedAt: clock(), issues }));
+    } finally { checking = false; }
+  };
   const snapshot = () => {
     prune();
     return {
       ...read(),
       busy,
+      health: health(),
       services: socialServices,
       ...client.info(),
       events: db
@@ -163,6 +191,14 @@ export function createFamilyService({ path, client, clock = Date.now }) {
   return {
     snapshot,
     tick: run,
+    checkHealth,
+    clear(ids) {
+      if (!Array.isArray(ids) || ids.length > 200 || ids.some((id) => !Number.isSafeInteger(id) || id < 1))
+        throw Object.assign(Error('Choose up to 200 notifications to clear.'), { status: 400 });
+      const remove = db.prepare('DELETE FROM family_events WHERE id=?');
+      for (const id of ids) remove.run(id);
+      return snapshot();
+    },
     async save(body) {
       if (!client.info().writeEnabled)
         throw Object.assign(
@@ -236,7 +272,7 @@ export function createFamilyService({ path, client, clock = Date.now }) {
     },
     async close() {
       closed = true;
-      while (busy) await new Promise((r) => setTimeout(r, 10));
+      while (busy || checking) await new Promise((r) => setTimeout(r, 10));
       db.close();
     },
   };

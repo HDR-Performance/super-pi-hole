@@ -28,9 +28,10 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
   const client = createPiholeClient(pihole);
   const lancache = createLanCacheIntegration({ path: dataPath === ':memory:' ? ':memory:' : dataPath + '.lancache.sqlite', pihole: client, fetchImpl: pihole.integrationFetchImpl ?? fetch, clock });
   const family = createFamilyService({ path: dataPath === ':memory:' ? ':memory:' : dataPath + '.family.sqlite', client, clock });
-  const familyTimer = setInterval(() => { void family.tick(); }, 30000);
+  const poll = () => { void Promise.allSettled([family.tick(), family.checkHealth()]).then((results) => { if (results.some((r) => r.status === 'rejected')) console.error('Notification/control background check failed; inspect local storage and service logs.'); }); };
+  const familyTimer = setInterval(poll, 30000);
   familyTimer.unref();
-  queueMicrotask(() => { void family.tick(); });
+  queueMicrotask(poll);
   const live = createLiveMiddleware(client);
   const stock = createStockInterface(client, { enabled: pihole.controlled, url: pihole.url, fetchImpl: pihole.fetchImpl });
   const cookieName = 'sph_session', sessionLife = 8 * 60 * 60 * 1000;
@@ -102,6 +103,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
           if (path === '/live-api/family/save') return json(res, 200, await family.save(body));
           if (path === '/live-api/family/retry') return json(res, 200, await family.retry(body));
           if (path === '/live-api/family/ack') return json(res, 200, family.acknowledge(body.id));
+          if (path === '/live-api/family/clear') return json(res, 200, family.clear(body.ids));
           throw fail(404, 'Unknown family action.');
         }
         if (path.startsWith('/review-api/')) return await review(req, res);

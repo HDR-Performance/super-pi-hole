@@ -302,6 +302,13 @@ export function createPiholeClient({
       return request(path);
     },
     async read(resource, params = new URLSearchParams()) {
+      if (resource === 'engine-health') {
+        const blocking = await request('dns/blocking');
+        if (!['enabled', 'disabled'].includes(blocking.blocking)) throw fail(502, 'Unsupported blocking status.');
+        const messages = await request('info/messages');
+        if (!Array.isArray(messages.messages)) throw fail(502, 'Unsupported diagnostics response.');
+        return { blocking: blocking.blocking, messageCount: messages.messages.length };
+      }
       if (featureViews.has(resource)) return features.read(resource, params);
       if (resource === 'gravity') return { ...gravity };
       if (resource === 'devices') {
