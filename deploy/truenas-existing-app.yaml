@@ -5,7 +5,7 @@
 # Never expose ports 20720 or 20721 outside the trusted LAN.
 services:
   pihole:
-    image: ghcr.io/hdr-performance/super-pi-hole:0.4.1-test
+    image: ghcr.io/hdr-performance/super-pi-hole:0.4.2-test
     user: '0:0'
     network_mode: host
     platform: linux/amd64
@@ -39,7 +39,7 @@ services:
       retries: 5
       start_period: 60s
   super-pi-hole:
-    image: ghcr.io/hdr-performance/super-pi-hole:0.4.1-test
+    image: ghcr.io/hdr-performance/super-pi-hole:0.4.2-test
     user: '568:568'
     network_mode: host
     restart: unless-stopped
@@ -83,7 +83,7 @@ x-portals:
     port: 20721
     scheme: http
 x-notes: >
-  Super Pi Hole 0.4.1-test: one TrueNAS app for DNS and our main GUI.
+  Super Pi Hole 0.4.2-test: one TrueNAS app for DNS and our main GUI.
   Retains the original Pi-hole directories and existing external GUI data volume.
   Do not delete that volume or start the old standalone companion app.
   Take a TrueNAS snapshot before applying; the startup-blocking backup service is omitted.
