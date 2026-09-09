@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { load } from 'js-yaml';
 import { backupUpgrade } from '../deploy/backup-upgrade.mjs';
 import { createStockInterface } from '../server/stock-interface.mjs';
+const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 test('migration copies and verifies original data without altering it', () => {
   const root = mkdtempSync(join(tmpdir(), 'sph-migration-'));
@@ -48,7 +49,7 @@ test('existing-app template retains data and explicitly offers local password-fr
   assert.deepEqual(config.services['super-pi-hole'].volumes, ['super-pi-hole-data:/data']);
   assert.equal(config['x-portals'][0].path, '/');
   assert.equal(config['x-portals'][0].port, 20721);
-  for (const service of Object.values(config.services)) assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:0.4.1-test');
+  for (const service of Object.values(config.services)) assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:' + version);
 });
 test('stock interface cannot write to the engine or point to a remote host', async () => {
   let forwarded = 0;
@@ -60,7 +61,7 @@ test('stock interface cannot write to the engine or point to a remote host', asy
 test('integrated YAML pins our image, backs up read-only, and preserves both original mounts', () => {
   const config = load(readFileSync(new URL('../deploy/truenas-upgrade.yaml', import.meta.url), 'utf8'));
   for (const service of Object.values(config.services)) {
-    assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:0.4.1-test');
+    assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:' + version);
     assert.equal(service.network_mode, 'host');
     assert.equal(service.build, undefined);
   }
@@ -76,7 +77,7 @@ test('integrated YAML pins our image, backs up read-only, and preserves both ori
 test('release generator supports the three-service migration and two-service in-place app', () => {
   const root = mkdtempSync(join(tmpdir(), 'sph-release-assets-'));
   mkdirSync(join(root, 'deploy'));
-  writeFileSync(join(root, 'package.json'), JSON.stringify({ version: '0.4.1-test' }));
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ version }));
   writeFileSync(
     join(root, 'image-digest.txt'),
     'ghcr.io/hdr-performance/super-pi-hole@sha256:' + 'a'.repeat(64),
@@ -110,7 +111,7 @@ test('fresh all-in-one TrueNAS install initializes new storage under one dataset
   const config = load(readFileSync(new URL('../deploy/truenas-fresh-all-in-one.yaml', import.meta.url), 'utf8'));
   assert.deepEqual(Object.keys(config.services), ['pihole', 'super-pi-hole']);
   assert.equal(config.services.pihole.build, undefined);
-  for (const service of Object.values(config.services)) assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:0.4.1-test');
+  for (const service of Object.values(config.services)) assert.equal(service.image, 'ghcr.io/hdr-performance/super-pi-hole:' + version);
   assert.equal(config.services.pihole.environment.FTLCONF_webserver_api_password, '');
   assert.equal(config.services.pihole.environment.FTLCONF_dns_upstreams, '1.1.1.1;1.0.0.1');
   assert.equal(config.services['super-pi-hole'].environment.SUPER_PIHOLE_AUTH_DISABLED, 'true');
