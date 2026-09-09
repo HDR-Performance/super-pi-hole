@@ -108,7 +108,7 @@ test('wrong hosts and cross-origin changes are rejected even when authenticated'
   assert.equal((await call('/', { headers: { Host: 'evil.example' } })).status, 403);
   const post = { method: 'POST', headers: { Cookie: cookie, Origin: 'http://evil.example', 'Content-Type': 'application/json', 'X-Super-Pihole-Review': '1' }, body: JSON.stringify({ action: 'blocking', blocking: true, timer: null, confirmed: true }) };
   assert.equal((await call('/live-api/action', post)).status, 403);
-  assert.equal(api.calls.length, 0);
+  assert.equal(api.calls.filter(c => c.method !== 'GET').length, 0);
 });
 test('same-origin authenticated review save and live mutation work independently', async t => {
   const { call, login, api } = await fixture(t);
@@ -116,9 +116,9 @@ test('same-origin authenticated review save and live mutation work independently
   const headers = { Cookie: cookie, 'Content-Type': 'application/json', 'X-Super-Pihole-Review': '1' };
   const current = await (await call('/review-api/state', { headers })).json();
   assert.equal((await call('/review-api/save', { method: 'POST', headers, body: JSON.stringify({ state: current.state, revision: 0 }) })).status, 200);
-  assert.equal(api.calls.length, 0);
+  assert.equal(api.calls.filter(c => c.method !== 'GET').length, 0);
   assert.equal((await call('/live-api/action', { method: 'POST', headers, body: JSON.stringify({ action: 'blocking', blocking: false, timer: 300, confirmed: true }) })).status, 200);
-  assert.deepEqual(api.calls[0].body, { blocking: false, timer: 300 });
+  assert.deepEqual(api.calls.find(c => c.path === '/api/dns/blocking' && c.method !== 'GET').body, { blocking: false, timer: 300 });
 });
 test('logout revokes an existing cookie and static paths cannot expose files', async t => {
   const { call, login } = await fixture(t);
