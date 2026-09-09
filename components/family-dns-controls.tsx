@@ -47,6 +47,7 @@ export type FamilyState = {
   writeEnabled: boolean;
   busy: boolean;
   unread: number;
+  health?: { checkedAt: number | null; issues: string[] };
   events: Event[];
   daily: { day: string; changes: number; errors: number }[];
 };
@@ -762,6 +763,13 @@ function ScheduleEditor({
 export function FamilyNotifications() {
   const family = useFamily();
   const [error, setError] = useState('');
+  const [clearing, setClearing] = useState(false);
+  const clear = async (ids: number[]) => {
+    setClearing(true); setError('');
+    try { await liveApi('family/clear', undefined, { ids }); family.refresh(); }
+    catch (e) { setError((e as Error).message); }
+    finally { setClearing(false); }
+  };
   return (
     <>
       <h1>Notifications</h1>
@@ -772,9 +780,18 @@ export function FamilyNotifications() {
       </p>
       {(family.error || error) && <p role="alert">{family.error || error}</p>}
       <section className="panel">
+        <h2>Current Pi-hole issues</h2>
+        <p>Read-only API checks run every 30 seconds, even without family profiles. These do not test end-to-end DNS resolution.</p>
+        {!family.data?.health?.checkedAt ? <p>Waiting for the first health check.</p> : <small>Last check: {new Date(family.data.health.checkedAt).toLocaleString()}</small>}
+        {family.data?.health?.issues.map((issue) => <p role="alert" key={issue}>{issue}</p>)}
+        {family.data?.health?.checkedAt && !family.data.health.issues.length ? <p>No issues reported by the latest API check.</p> : null}
+      </section>
+      <section className="panel">
         <h2>{family.data?.unread ?? '…'} unread</h2>
+        <Button variant="outline" disabled={clearing || !family.data?.events.length} onClick={() => { if (window.confirm('Clear displayed notification history? Active issues and Pi-hole logs are retained.')) void clear(family.data!.events.map((e) => e.id)); }}>Clear displayed notifications</Button>
         {family.data?.events.map((e) => (
           <article key={e.id} className="sph-notification">
+            <Button variant="outline" disabled={clearing} onClick={() => void clear([e.id])}>Clear</Button>
             <span className="badge amber">{e.severity}</span>
             <div>
               <strong>{e.message}</strong>
@@ -797,7 +814,7 @@ export function FamilyNotifications() {
           </article>
         ))}
         {family.data && !family.data.events.length && (
-          <p>No retained family-control notifications.</p>
+          <p>No retained notifications.</p>
         )}
       </section>
       <section className="panel">
