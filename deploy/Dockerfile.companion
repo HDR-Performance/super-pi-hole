@@ -22,7 +22,7 @@ FROM node:24-bookworm-slim AS runtime
 LABEL org.opencontainers.image.title="Super Pi Hole" \
       org.opencontainers.image.description="Experimental Pi-hole v6 controller with opt-in live family DNS policies" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.version="0.4.2-test" \
+      org.opencontainers.image.version="0.4.3-test" \
       org.opencontainers.image.source="https://github.com/HDR-Performance/super-pi-hole"
 WORKDIR /app
 COPY --from=build /src/standalone-dist ./standalone-dist

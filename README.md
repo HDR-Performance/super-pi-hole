@@ -8,7 +8,7 @@ An independent, self-hosted distribution of **Pi-hole v6** with a custom
 controller, device center, and family-policy design workspace. The complete
 pinned upstream sources are public under `vendor/`, with original licenses.
 
-**0.4.1-test is an integrated test release, not a production security appliance.**
+**0.4.3-test is an integrated test release, not a production security appliance.**
 It includes a source-built DNS engine. Upgrade instructions and rollback are in
 [Integrated TrueNAS upgrade](docs/INTEGRATED-UPGRADE.md). Only use published
 release artifacts whose integrated-container tests passed.
@@ -17,7 +17,7 @@ Pi-hole, TrueNAS, TP-Link, NETGEAR, and Ubiquiti do not sponsor or endorse it.
 The official, pinned Pi-hole sources are the compatibility baseline. See the
 [feature-parity register](docs/FEATURE-PARITY.md) for the new development controls,
 intentional deployment boundaries, remaining gaps and required release tests.
-**0.4.1-test adds the editors, history explorer and live family controller.
+**0.4.3-test includes the editors, history explorer, live family controller, notification health checks, and optional privacy packs.
 The older 0.3.0-test image does not contain those features.** See the
 [twelve-feature family/network checklist](docs/FAMILY-NETWORK-FEATURES.md).
 
@@ -66,7 +66,7 @@ is approximate; the interface reads the engine again when it expires.
 
 This is a network-wide pause for clients using this resolver, not a device's
 Internet-access pause. Saved rules, lists and assignments are not deleted. The
-older 0.3.0-test interface uses different labels; upgrade to 0.4.1-test for the
+older 0.3.0-test interface uses different labels; upgrade to 0.4.3-test for the
 clearer controls described above.
 
 ## Upgrade an existing Pi-hole

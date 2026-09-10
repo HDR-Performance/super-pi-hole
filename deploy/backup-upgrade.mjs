@@ -10,7 +10,7 @@ function fileHash(path) {
   try { let count; while ((count = readSync(fd, buffer, 0, buffer.length, null))) hash.update(buffer.subarray(0, count)); } finally { closeSync(fd); }
   return hash.digest('hex');
 }
-export function backupUpgrade({ config, dnsmasq, appData, destination, version = '0.4.2-test' }) {
+export function backupUpgrade({ config, dnsmasq, appData, destination, version = '0.4.3-test' }) {
   const sources = [config, dnsmasq, ...(appData ? [appData] : [])];
   for (const dir of sources) if (!lstatSync(dir).isDirectory() || lstatSync(dir).isSymbolicLink()) throw Error('Backup source must be an existing real directory.');
   for (const file of ['pihole.toml', 'gravity.db']) if (!existsSync(join(config, file))) throw Error(`Missing ${file}: refusing an empty or unsupported migration.`);

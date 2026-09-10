@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Monitor, PlayCircle, RefreshCw, ShieldCheck, Tv, UsersRound } from 'lucide-react';
 import catalog from '@/config/blocklist-presets.json';
 import { socialServices, suffixPattern } from '@/lib/family-dns.mjs';
+import { privacyPackDomains, privacyRuleOwner } from '@/lib/privacy-packs.mjs';
 import { liveApi, useData } from './live-pihole';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
@@ -57,6 +58,22 @@ export function NetworkPolicyControls({ view }: { view: 'blocklists' | 'social' 
     if (!existing.comment?.startsWith(prefix)) throw Error(`${source(sourceId).name} already exists but is not owned by Super Pi Hole. Manage that subscription in Lists.`);
     await act({ action: 'list-delete', create: false, expected: existing, address: existing.address, type: 'block' });
   };
+  const privacyDomains = (id: string) => privacyPackDomains[id as keyof typeof privacyPackDomains] ?? [];
+  const privacyRule = (id: string, domain: string) =>
+    rules.find((r) => r.type === 'deny' && r.kind === 'exact' && r.comment === privacyRuleOwner(id, domain))
+    ?? rules.find((r) => r.type === 'deny' && r.kind === 'exact' && r.domain === domain);
+  const savePrivacyRule = async (id: string, domain: string) => {
+    const existing = privacyRule(id, domain);
+    if (existing && !existing.comment?.startsWith(prefix)) throw Error(`${domain} already has a matching rule that is not owned by Super Pi Hole. It was left unchanged.`);
+    await act(existing
+      ? { action: 'domain-edit', domain, type: 'deny', nextType: 'deny', kind: 'exact', enabled: true, groups: groupIds, comment: privacyRuleOwner(id, domain), expected: existing }
+      : { action: 'domain-add', domain, type: 'deny', kind: 'exact', groups: groupIds, comment: privacyRuleOwner(id, domain) });
+  };
+  const removePrivacyRule = async (id: string, domain: string) => {
+    const existing = privacyRule(id, domain);
+    if (!existing || existing.comment !== privacyRuleOwner(id, domain)) return;
+    await act({ action: 'domain-delete', domain, type: 'deny', kind: 'exact' });
+  };
   const run = async (label: string, operation: () => Promise<void>, gravity = false) => {
     setBusy(true); setError(''); setMessage('');
     try {
@@ -85,7 +102,15 @@ export function NetworkPolicyControls({ view }: { view: 'blocklists' | 'social' 
   const setPrivacy = async (id: string, enabled: boolean) => {
     const p = catalog.presets.find((item) => item.id === id)!;
     if (!ask(`${enabled ? 'Enable' : 'Disable'} ${p.name} across the whole network? Compatibility with updates, streaming and sign-in should be checked afterward.`)) return;
-    await run(p.name, () => enabled ? saveList(p.sources[0]) : removeList(p.sources[0]), true);
+    await run(p.name, async () => {
+      if (enabled) {
+        await saveList(p.sources[0]);
+        for (const domain of privacyDomains(id)) await savePrivacyRule(id, domain);
+      } else {
+        for (const domain of privacyDomains(id)) await removePrivacyRule(id, domain);
+        await removeList(p.sources[0]);
+      }
+    }, true);
   };
   const parentalPreset = catalog.presets.find((item) => item.id === 'parental-content')!;
   const parentalProfiles = familyData.data?.config.profiles ?? [];
@@ -177,7 +202,9 @@ export function NetworkPolicyControls({ view }: { view: 'blocklists' | 'social' 
         <h2>Device privacy packs</h2><p>Optional stricter protection. These switches intentionally apply network-wide; use Pi-hole groups directly when you need device-only scope.</p>
         <div className="nc-two">
           {catalog.presets.filter((p) => ['windows-telemetry', 'lg-telemetry'].includes(p.id)).map((p) => {
-            const entry = listFor(p.sources[0]), on = covered(entry), Icon = p.id === 'windows-telemetry' ? Monitor : Tv;
+            const entry = listFor(p.sources[0]);
+            const on = covered(entry) && privacyDomains(p.id).every((domain) => covered(privacyRule(p.id, domain)));
+            const Icon = p.id === 'windows-telemetry' ? Monitor : Tv;
             return <article className={`sph-policy-card ${on ? 'selected' : ''}`} key={p.id}><Icon /><h3>{p.name}</h3><p>{p.note}</p><label className="sph-toggle-row"><span>{on ? 'Active network-wide' : entry ? 'Coverage needs repair' : 'Off'}</span><Switch disabled={locked} checked={on} onCheckedChange={(v) => void setPrivacy(p.id, v)} /></label></article>;
           })}
         </div>

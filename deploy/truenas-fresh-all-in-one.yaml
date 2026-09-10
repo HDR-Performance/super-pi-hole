@@ -2,7 +2,7 @@
 # /mnt/tank/apps/super-pi-hole
 services:
   pihole:
-    image: ghcr.io/hdr-performance/super-pi-hole:0.4.2-test
+    image: ghcr.io/hdr-performance/super-pi-hole:0.4.3-test
     user: '0:0'
     network_mode: host
     platform: linux/amd64
@@ -36,7 +36,7 @@ services:
       retries: 5
       start_period: 120s
   super-pi-hole:
-    image: ghcr.io/hdr-performance/super-pi-hole:0.4.2-test
+    image: ghcr.io/hdr-performance/super-pi-hole:0.4.3-test
     command: [sh, -c, 'set -o pipefail; node server/runtime.mjs 2>&1 | tee /data/gui-startup.log']
     user: '568:568'
     network_mode: host
@@ -78,7 +78,7 @@ x-portals:
     port: 20721
     scheme: http
 x-notes: >
-  Super Pi Hole 0.4.2-test integrated build. One TrueNAS app contains the DNS
+  Super Pi Hole 0.4.3-test integrated build. One TrueNAS app contains the DNS
   engine and main GUI. All persistent files live under
   /mnt/tank/apps/super-pi-hole. Router DNS is 192.168.1.10 on port 53; Web UI is
   http://192.168.1.10:20721/. The controller opens without a password on this trusted-LAN template. The
