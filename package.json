@@ -1,6 +1,6 @@
 {
   "name": "super-pi-hole",
-  "version": "0.4.3-test",
+  "version": "0.4.4-test",
   "private": true,
   "engines": {
     "node": ">=24.0.0"

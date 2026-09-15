@@ -13,7 +13,7 @@ export function createFamilyService({ path, client, clock = Date.now }) {
   db.exec('CREATE TABLE IF NOT EXISTS engine_health (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL)');
   db.prepare('INSERT OR IGNORE INTO engine_health VALUES(1,?)').run(JSON.stringify({ checkedAt: null, issues: [] }));
   const health = () => JSON.parse(db.prepare('SELECT body FROM engine_health WHERE id=1').get().body);
-  db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
+  db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000;');
   db.exec(
     'CREATE TABLE IF NOT EXISTS family_state (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, body TEXT NOT NULL);',
   );

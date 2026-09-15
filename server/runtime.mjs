@@ -31,7 +31,11 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
   const poll = () => { void Promise.allSettled([family.tick(), family.checkHealth()]).then((results) => { if (results.some((r) => r.status === 'rejected')) console.error('Notification/control background check failed; inspect local storage and service logs.'); }); };
   const familyTimer = setInterval(poll, 30000);
   familyTimer.unref();
-  queueMicrotask(poll);
+  // Let health/static requests become available before the first storage-backed
+  // reconciliation. This also prevents a slow NAS transaction from making a
+  // freshly started GUI look dead while DNS is already healthy.
+  const initialFamilyTimer = setTimeout(poll, 1000);
+  initialFamilyTimer.unref();
   const live = createLiveMiddleware(client);
   const stock = createStockInterface(client, { enabled: pihole.controlled, url: pihole.url, fetchImpl: pihole.fetchImpl });
   const cookieName = 'sph_session', sessionLife = 8 * 60 * 60 * 1000;
@@ -132,7 +136,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   server.maxHeadersCount = 50;
-  server.once('close', () => { clearInterval(familyTimer); sessions.clear(); store.close(); lancache.close(); void family.close(); });
+  server.once('close', () => { clearTimeout(initialFamilyTimer); clearInterval(familyTimer); sessions.clear(); store.close(); lancache.close(); void family.close(); });
   return server;
 }
 

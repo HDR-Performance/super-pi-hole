@@ -138,18 +138,34 @@ export function NetworkPolicyControls({ view }: { view: 'blocklists' | 'social' 
     return rules.find((r) => r.type === 'deny' && r.kind === 'regex' && r.comment === `${prefix}social:${id}`)
       ?? rules.find((r) => r.type === 'deny' && r.kind === 'regex' && r.domain === pattern);
   };
+  const socialAllowRule = (id: string) => {
+    const service = socialServices.find((s) => s.id === id)!;
+    const pattern = suffixPattern(service.domains);
+    return rules.find((r) => r.type === 'allow' && r.kind === 'regex' && r.comment === `${prefix}social-allow:${id}`)
+      ?? rules.find((r) => r.type === 'allow' && r.kind === 'regex' && r.domain === pattern);
+  };
   const setSocial = async (id: string, enabled: boolean) => {
     const service = socialServices.find((s) => s.id === id)!;
-    const pattern = suffixPattern(service.domains), existing = socialRule(id);
+    const pattern = suffixPattern(service.domains), existing = socialRule(id), existingAllow = socialAllowRule(id);
     if (!ask(`${enabled ? 'Block' : 'Allow'} ${service.name} across the whole network? DNS filtering can be bypassed by VPNs, encrypted DNS, cached answers or direct IP connections.`)) return;
     await run(service.name, async () => {
       if (enabled) {
+        if (existingAllow) {
+          if (!existingAllow.comment?.startsWith(prefix)) throw Error(`A matching ${service.name} allow rule is not owned by Super Pi Hole. Review it under Domain rules.`);
+          await act({ action: 'domain-delete', domain: existingAllow.domain, type: 'allow', kind: 'regex' });
+        }
         if (existing && !existing.comment?.startsWith(prefix)) throw Error(`A matching ${service.name} rule already exists but is not owned by Super Pi Hole. Review it under Domain rules.`);
         await act(existing && existing.domain === pattern ? { action: 'domain-edit', domain: pattern, type: 'deny', nextType: 'deny', kind: 'regex', enabled: true, groups: groupIds, comment: `${prefix}social:${id}`, expected: existing } : { action: 'domain-add', domain: pattern, type: 'deny', kind: 'regex', groups: groupIds, comment: `${prefix}social:${id}` });
         if (existing && existing.domain !== pattern) await act({ action: 'domain-delete', domain: existing.domain, type: 'deny', kind: 'regex' });
       } else if (existing) {
         if (!existing.comment?.startsWith(prefix)) throw Error(`The matching ${service.name} rule is not owned by Super Pi Hole and was left unchanged.`);
         await act({ action: 'domain-delete', domain: existing.domain, type: 'deny', kind: 'regex' });
+      }
+      if (!enabled) {
+        if (existingAllow && !existingAllow.comment?.startsWith(prefix)) throw Error(`A matching ${service.name} allow rule is not owned by Super Pi Hole. Review it under Domain rules.`);
+        await act(existingAllow
+          ? { action: 'domain-edit', domain: pattern, type: 'allow', nextType: 'allow', kind: 'regex', enabled: true, groups: groupIds, comment: `${prefix}social-allow:${id}`, expected: existingAllow }
+          : { action: 'domain-add', domain: pattern, type: 'allow', kind: 'regex', groups: groupIds, comment: `${prefix}social-allow:${id}` });
       }
     });
   };

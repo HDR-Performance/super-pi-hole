@@ -90,7 +90,7 @@ function validateStatus(value) {
 export function createLanCacheIntegration({ path, pihole, fetchImpl = fetch, clock = Date.now }) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
-  db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS lancache_integration (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, body TEXT NOT NULL, token_cipher TEXT);');
+  db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS lancache_integration (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, body TEXT NOT NULL, token_cipher TEXT);');
   db.prepare('INSERT OR IGNORE INTO lancache_integration VALUES(1,0,?,NULL)').run(JSON.stringify(initial()));
   const key = path === ':memory:' ? randomBytes(32) : loadKey(path + '.key');
   const row = () => db.prepare('SELECT revision,body,token_cipher FROM lancache_integration WHERE id=1').get();
