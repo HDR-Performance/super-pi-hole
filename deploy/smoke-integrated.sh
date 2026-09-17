@@ -20,12 +20,24 @@ docker run --rm --user 0:0 --read-only --cap-drop ALL --cap-add CHOWN --cap-add 
 docker run -d --name sph-ci-dns --user 0:0 --cap-add NET_ADMIN --cap-add SYS_NICE --cap-add SYS_TIME -e FTLCONF_webserver_api_password= \
   -v sph-ci-engine:/etc/pihole -p 127.0.0.1:20721:20721 "$image" bash /app/deploy/start-dns.sh
 trap 'docker logs sph-ci-dns; docker logs sph-ci-ui 2>/dev/null || true' ERR
-for i in $(seq 1 60); do
-  if docker exec sph-ci-dns dig +short +time=1 +tries=1 @127.0.0.1 allowed.test | grep -q '^192.0.2.42$'; then break; fi
+dns_ready=false
+for i in $(seq 1 90); do
+  if docker exec sph-ci-dns dig +short +time=1 +tries=1 @127.0.0.1 allowed.test | grep -q '^192.0.2.42$'; then dns_ready=true; break; fi
+  if ! docker inspect -f '{{.State.Running}}' sph-ci-dns | grep -q true; then
+    echo 'DNS container stopped before becoming ready.' >&2
+    exit 1
+  fi
   sleep 1
 done
-test "$(docker exec sph-ci-dns dig +short @127.0.0.1 allowed.test)" = 192.0.2.42
-test "$(docker exec sph-ci-dns dig +short @127.0.0.1 blocked.test)" = 0.0.0.0
+if [[ "$dns_ready" != true ]]; then
+  echo 'DNS did not answer the seeded allowed.test record within 90 seconds.' >&2
+  exit 1
+fi
+allowed_answer=$(docker exec sph-ci-dns dig +short +time=2 +tries=1 @127.0.0.1 allowed.test | tr -d '\r')
+blocked_answer=$(docker exec sph-ci-dns dig +short +time=2 +tries=1 @127.0.0.1 blocked.test | tr -d '\r')
+printf 'Smoke DNS answers: allowed.test=%q blocked.test=%q\n' "$allowed_answer" "$blocked_answer"
+test "$allowed_answer" = 192.0.2.42
+test "$blocked_answer" = 0.0.0.0
 docker run -d --name sph-ci-ui --network container:sph-ci-dns --read-only --cap-drop ALL \
   --mount type=volume,src=sph-ci-ui-data,dst=/data \
   --tmpfs /tmp:size=64m -e PUBLIC_ORIGIN=http://127.0.0.1:20721 \
@@ -74,3 +86,4 @@ for i in $(seq 1 30); do
 done
 curl --fail --silent http://127.0.0.1:20721/healthz
 echo 'Integrated DNS, existing rules, controller writes, stock write rejection, and restart persistence passed.'
+
