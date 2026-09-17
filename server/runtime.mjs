@@ -151,9 +151,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   });
   const port = Number(env.PORT ?? 8080);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid PORT.');
-  server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Super Pi Hole 0.4.2-test listening on port ${port}; live writes ${env.PIHOLE_WRITE_ENABLED === 'true' ? 'unlocked' : 'locked'}; GUI authentication ${env.SUPER_PIHOLE_AUTH_DISABLED === 'true' ? 'disabled' : 'enabled'}.`));
+  server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Super Pi Hole ${appVersion} listening on port ${port}; live writes ${env.PIHOLE_WRITE_ENABLED === 'true' ? 'unlocked' : 'locked'}; GUI authentication ${env.SUPER_PIHOLE_AUTH_DISABLED === 'true' ? 'disabled' : 'enabled'}.`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 10000).unref();
   });
 }
+
