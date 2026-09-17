@@ -41,6 +41,7 @@ RUN mkdir -p /opt/pihole /etc/pihole /etc/dnsmasq.d /var/log/pihole /var/lib/log
     && sed -i '/updatechecker/d' /crontab.txt \
     && chown 568:568 /data && chmod 700 /data
 WORKDIR /app
+COPY --from=build /src/package.json ./package.json
 COPY --from=build /src/standalone-dist ./standalone-dist
 COPY --from=build /src/server ./server
 COPY --from=build /src/lib ./lib
@@ -57,3 +58,4 @@ USER 568:568
 EXPOSE 53/udp 53/tcp 20721/tcp
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD ["node", "/app/deploy/healthcheck.mjs"]
 CMD ["node", "server/runtime.mjs"]
+
