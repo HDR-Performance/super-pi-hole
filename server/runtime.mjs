@@ -11,6 +11,7 @@ import { createPiholeClient, createLiveMiddleware, fail, json, readJson } from '
 import { createLanCacheIntegration } from './lancache-integration.mjs';
 
 const derive = promisify(scrypt);
+const appVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 export function secret(env, name) {
   if (env[name + '_FILE']) return readFileSync(env[name + '_FILE'], 'utf8').trim();
   return env[name] ?? '';
@@ -52,7 +53,7 @@ export function createRuntime({ publicOrigin, password, dataPath, staticDir, pih
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try {
       const path = new URL(req.url, origin).pathname;
-      if (path === '/healthz' && req.method === 'GET') return json(res, 200, { ok: true, service: 'Super Pi Hole', version: '0.4.2-test' });
+      if (path === '/healthz' && req.method === 'GET') return json(res, 200, { ok: true, service: 'Super Pi Hole', version: appVersion });
       if (req.headers.host !== origin.host || req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== origin.origin)) throw fail(403, 'Use the configured Super Pi Hole address. Cross-origin requests are blocked.');
       if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== origin.origin) throw fail(403, 'A same-origin request is required.');
       for (const [key, expires] of sessions) if (expires <= clock()) sessions.delete(key);

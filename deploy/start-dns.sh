@@ -9,9 +9,23 @@ if [[ -f /etc/pihole/setupVars.conf && ! -f /etc/pihole/pihole.toml ]]; then
   echo 'Migrate v5 to supported Pi-hole v6 first; this release upgrades v6 only.' >&2
   exit 1
 fi
+# Safe first-run defaults for an appliance/container host. TrueNAS already
+# provides NTP on port 123, and busy home networks can briefly exceed dnsmasq's
+# upstream-forwarding default. These values seed only a fresh configuration;
+# they are deliberately not left as forced environment settings.
+fresh_config=false
+if [[ ! -f /etc/pihole/pihole.toml ]]; then
+  fresh_config=true
+  export FTLCONF_ntp_ipv4_active=false
+  export FTLCONF_ntp_ipv6_active=false
+  export FTLCONF_misc_dnsmasq_lines='["dns-forward-max=300"]'
+fi
 # Apply explicit FTLCONF values and create pihole.toml on a fresh volume.
 set_uid_gid
 ftl_config
+if [[ "$fresh_config" == true ]]; then
+  unset FTLCONF_ntp_ipv4_active FTLCONF_ntp_ipv6_active FTLCONF_misc_dnsmasq_lines
+fi
 install_logrotate
 gravityDBfile=$(getFTLConfigValue files.gravity)
 if [[ ! -f "$gravityDBfile" ]]; then
