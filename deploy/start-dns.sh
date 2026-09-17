@@ -16,15 +16,16 @@ fi
 fresh_config=false
 if [[ ! -f /etc/pihole/pihole.toml ]]; then
   fresh_config=true
-  export FTLCONF_ntp_ipv4_active=false
-  export FTLCONF_ntp_ipv6_active=false
-  export FTLCONF_misc_dnsmasq_lines='["dns-forward-max=300"]'
 fi
 # Apply explicit FTLCONF values and create pihole.toml on a fresh volume.
 set_uid_gid
 ftl_config
 if [[ "$fresh_config" == true ]]; then
-  unset FTLCONF_ntp_ipv4_active FTLCONF_ntp_ipv6_active FTLCONF_misc_dnsmasq_lines
+  # Persist appliance-safe defaults without marking them as environment-forced.
+  # This keeps the API free to change them and lets integrations append lines.
+  pihole-FTL --config ntp.ipv4.active false >/dev/null
+  pihole-FTL --config ntp.ipv6.active false >/dev/null
+  pihole-FTL --config misc.dnsmasq_lines '["dns-forward-max=300"]' >/dev/null
 fi
 install_logrotate
 gravityDBfile=$(getFTLConfigValue files.gravity)
@@ -49,3 +50,4 @@ trap stop TERM INT
 capsh --user=pihole --keep=1 -- -c '/usr/bin/pihole-FTL no-daemon' &
 engine=$!
 wait "$engine"
+
